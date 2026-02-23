@@ -12,12 +12,18 @@ export const Login = ({ slug }) => {
     e.preventDefault();
     setError("");
     try {
-      await signInWithEmailAndPassword(auth, email, password);
-      // Al loguearse, el useEffect de App.jsx detectará al usuario
-      // y te redirigirá automáticamente a /admin
+      const userCredential = await signInWithEmailAndPassword(
+        auth,
+        email,
+        password,
+      );
+
+      if (userCredential.user.uid !== businessId) {
+        await auth.signOut();
+        setError("Credenciales incorrectas o usuario no autorizado.");
+      }
     } catch (err) {
       setError("Credenciales incorrectas o usuario no autorizado.");
-      console.error(err);
     }
   };
 

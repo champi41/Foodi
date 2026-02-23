@@ -1,80 +1,166 @@
 import React, { useState, useEffect } from "react";
 import { collection, getDocs, query, where, limit } from "firebase/firestore";
 import { db } from "../../api/firebase";
+import { CarritoView } from "./CarritoView";
+import { ProductModal } from "../../components/ProductModal";
+import { ProductCard } from "../../components/ProductCard";
 import "./MenuPublico.css";
 
+const checkIsOpen = (business) => {
+  if (!business?.horarios) return true;
+  const ahora = new Date();
+  const dias = [
+    "domingo",
+    "lunes",
+    "martes",
+    "miercoles",
+    "jueves",
+    "viernes",
+    "sabado",
+  ];
+  const h = business.horarios[dias[ahora.getDay()]];
+  if (!h?.abierto) return false;
+  const toMin = (t) => {
+    if (!t) return 0;
+    const [hh, mm] = t.split(":").map(Number);
+    return hh * 60 + mm;
+  };
+  const now = ahora.getHours() * 60 + ahora.getMinutes();
+  if (now < toMin(h.inicio) || now > toMin(h.fin)) return false;
+  if (h.descanso && now >= toMin(h.dInicio) && now <= toMin(h.dFin))
+    return false;
+  return true;
+};
+
+// Convierte hex a rgba para generar la versión dim del acento
+const hexToRgba = (hex, alpha) => {
+  const r = parseInt(hex.slice(1, 3), 16);
+  const g = parseInt(hex.slice(3, 5), 16);
+  const b = parseInt(hex.slice(5, 7), 16);
+  return `rgba(${r},${g},${b},${alpha})`;
+};
+
+const aplicarTema = (tema) => {
+  const root = document.documentElement;
+  const acento = tema?.acento || "#ffb347";
+
+  // Acento siempre se aplica
+  root.style.setProperty("--mp-accent", acento);
+  root.style.setProperty("--mp-accent-dim", hexToRgba(acento, 0.15));
+
+  if (tema?.modo === "light") {
+    root.style.setProperty("--mp-bg", "#fafaf8");
+    root.style.setProperty("--mp-surface", "#f0f0ec");
+    root.style.setProperty("--mp-card", "#ffffff");
+    root.style.setProperty("--mp-border", "rgba(0,0,0,0.07)");
+    root.style.setProperty("--mp-text", "#1a1a18");
+    root.style.setProperty("--mp-muted", "#9a9890");
+    // El cart bar en light usa el color de texto oscuro sobre fondo claro
+    root.style.setProperty("--mp-cart-bg", "#1a1a18");
+    root.style.setProperty("--mp-cart-fg", "#fafaf8");
+  } else {
+    // Restaurar dark (default)
+    root.style.setProperty("--mp-bg", "#111110");
+    root.style.setProperty("--mp-surface", "#1a1a18");
+    root.style.setProperty("--mp-card", "#1e1e1c");
+    root.style.setProperty("--mp-border", "rgba(255,255,255,0.07)");
+    root.style.setProperty("--mp-text", "#f0ece4");
+    root.style.setProperty("--mp-muted", "#6b6860");
+    root.style.setProperty("--mp-cart-bg", "#f0ece4");
+    root.style.setProperty("--mp-cart-fg", "#111110");
+  }
+};
+
 export const MenuPublico = ({ slug }) => {
-  
   const [business, setBusiness] = useState(null);
   const [categories, setCategories] = useState([]);
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
-
-  // Filtros y Modal
+  const [isOpen, setIsOpen] = useState(true);
   const [activeCat, setActiveCat] = useState("all");
-  const [selectedProduct, setSelectedProduct] = useState(null); // Para el modal
-
-  // Carrito (Array de pedidos)
+  const [selectedProduct, setSelectedProduct] = useState(null);
   const [cart, setCart] = useState([]);
+  const [showCart, setShowCart] = useState(false);
+  const [editingCartItem, setEditingCartItem] = useState(null);
 
   useEffect(() => {
     if (slug) loadBusinessData();
   }, [slug]);
 
+  // Aplicar tema cuando lleguen los datos del negocio
+  useEffect(() => {
+    if (!business) return;
+    aplicarTema(business.tema);
+    setIsOpen(checkIsOpen(business));
+    const iv = setInterval(() => setIsOpen(checkIsOpen(business)), 60000);
+    return () => {
+      clearInterval(iv);
+      // Al desmontar, restaurar variables por defecto para no afectar otras páginas
+      aplicarTema({ modo: "dark", acento: "#ffb347" });
+    };
+  }, [business]);
+
   const loadBusinessData = async () => {
     try {
-      // 1. Buscar el negocio por el SLUG (subdominio)
       const q = query(
         collection(db, "negocios"),
         where("slug", "==", slug),
         limit(1),
       );
-      const querySnapshot = await getDocs(q);
-
-      if (querySnapshot.empty) {
+      const snap = await getDocs(q);
+      if (snap.empty) {
         setLoading(false);
-        return; // Negocio no existe
+        return;
       }
-
-      const businessDoc = querySnapshot.docs[0];
-      const businessId = businessDoc.id;
-      setBusiness({ id: businessId, ...businessDoc.data() });
-
-      // 2. Cargar Categorías y Productos de ese negocio
-      const catSnap = await getDocs(
-        collection(db, `negocios/${businessId}/categorias`),
-      );
-      const prodSnap = await getDocs(
-        collection(db, `negocios/${businessId}/productos`),
-      );
-
+      const bData = { id: snap.docs[0].id, ...snap.docs[0].data() };
+      setBusiness(bData);
+      // Aplicar tema de inmediato, sin esperar el useEffect, para evitar flash
+      aplicarTema(bData.tema);
+      const [catSnap, prodSnap] = await Promise.all([
+        getDocs(collection(db, `negocios/${bData.id}/categorias`)),
+        getDocs(collection(db, `negocios/${bData.id}/productos`)),
+      ]);
       setCategories(catSnap.docs.map((d) => ({ id: d.id, ...d.data() })));
-      const allProducts = prodSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
-      setProducts(allProducts.filter((p) => p.activo)); // Solo mostrar activos
+      setProducts(
+        prodSnap.docs
+          .map((d) => ({ id: d.id, ...d.data() }))
+          .filter((p) => p.activo),
+      );
     } catch (err) {
-      console.error("Error cargando menú:", err);
+      console.error(err);
     }
     setLoading(false);
   };
 
-  // --- LÓGICA DEL CARRITO ---
+  const handleProductClick = (p) => {
+    if (!isOpen) return;
+    setSelectedProduct(p);
+  };
+
   const addToCart = (item) => {
-    setCart([...cart, item]);
-    setSelectedProduct(null); // Cerrar modal
+    const idx = cart.findIndex((i) => i.uid === item.uid);
+    if (idx >= 0) {
+      const nc = [...cart];
+      nc[idx] = item;
+      setCart(nc);
+    } else {
+      setCart([...cart, item]);
+    }
+    setSelectedProduct(null);
+    setEditingCartItem(null);
+    if (editingCartItem) setShowCart(true);
   };
 
-  const getCartTotal = () => {
-    return cart.reduce(
-      (total, item) => total + item.precioFinal * item.cantidad,
-      0,
-    );
+  const handleEditItem = (item) => {
+    setEditingCartItem(item);
+    setSelectedProduct(item.productoOriginal);
+    setShowCart(false);
   };
 
-  const getCartCount = () => {
-    return cart.reduce((acc, item) => acc + item.cantidad, 0);
-  };
+  const removeFromCart = (uid) => setCart(cart.filter((i) => i.uid !== uid));
+  const getCartTotal = () => cart.reduce((t, i) => t + i.precioFinal, 0);
+  const getCartCount = () => cart.reduce((t, i) => t + i.cantidad, 0);
 
-  // --- FILTRADO ---
   const filteredProducts =
     activeCat === "all"
       ? products
@@ -82,45 +168,73 @@ export const MenuPublico = ({ slug }) => {
 
   const promos = products.filter((p) => p.es_promocion);
 
-  if (loading) return <div className="loading-spin">Cargando delicias...</div>;
-  if (!business)
-    return <div className="error-screen">Este local no existe :(</div>;
+  if (loading)
+    return (
+      <div className="mp-loading">
+        <span className="mp-loading__dot" />
+        <span className="mp-loading__dot" />
+        <span className="mp-loading__dot" />
+      </div>
+    );
+
+  if (!business) return <div className="mp-not-found">Local no encontrado</div>;
 
   return (
-    <div className="menu-container">
-      {/* 1. HEADER */}
-      <header className="menu-header">
-        <h1>{business.nombre}</h1>
-        <p className="status-badge">Abierto</p>{" "}
-        {/* Esto lo conectaremos con Config después */}
+    <div className="mp">
+      {/* ── HEADER ── */}
+      <header className="mp-header">
+        <div className="mp-header__inner">
+          <h1 className="mp-header__name">{business.nombre}</h1>
+          <div
+            className={`mp-status ${isOpen ? "mp-status--open" : "mp-status--closed"}`}
+          >
+            <span className="mp-status__dot" />
+            {isOpen ? "Abierto" : "Cerrado"}
+          </div>
+        </div>
+        {!isOpen && (
+          <p className="mp-closed-msg">
+            Estamos fuera de horario o en descanso — ¡volvemos pronto!
+          </p>
+        )}
       </header>
 
-      {/* 2. CARRUSEL PROMOCIONES */}
+      {/* ── PROMOCIONES ── */}
       {promos.length > 0 && (
-        <section className="carousel-section">
-          <h3>🔥 Promociones</h3>
-          <div className="carousel promo-carousel">
+        <section className="mp-promos">
+          <p className="mp-section-label">Destacados</p>
+          <div className="mp-promos__scroll">
             {promos.map((p) => (
-              <div
+              <button
                 key={p.id}
-                className="promo-card"
-                onClick={() => setSelectedProduct(p)}
+                className="mp-promo-card"
+                onClick={() => handleProductClick(p)}
+                disabled={!isOpen}
               >
-                <div className="promo-info">
-                  <h4>{p.nombre}</h4>
-                  <span className="price">${p.precio_base}</span>
+                {p.imagen && (
+                  <img
+                    src={p.imagen}
+                    alt={p.nombre}
+                    className="mp-promo-card__img"
+                  />
+                )}
+                <div className="mp-promo-card__overlay">
+                  <span className="mp-promo-card__name">{p.nombre}</span>
+                  <span className="mp-promo-card__price">
+                    ${p.precio_base?.toLocaleString("es-CL")}
+                  </span>
                 </div>
-              </div>
+              </button>
             ))}
           </div>
         </section>
       )}
 
-      {/* 3. CARRUSEL CATEGORÍAS */}
-      <section className="categories-sticky">
-        <div className="carousel cat-carousel">
+      {/* ── CATEGORÍAS ── */}
+      {categories.length > 0 && (
+        <div className="mp-cats">
           <button
-            className={`cat-pill ${activeCat === "all" ? "active" : ""}`}
+            className={`mp-cat-pill ${activeCat === "all" ? "mp-cat-pill--active" : ""}`}
             onClick={() => setActiveCat("all")}
           >
             Todo
@@ -128,248 +242,73 @@ export const MenuPublico = ({ slug }) => {
           {categories.map((c) => (
             <button
               key={c.id}
-              className={`cat-pill ${activeCat === c.id ? "active" : ""}`}
+              className={`mp-cat-pill ${activeCat === c.id ? "mp-cat-pill--active" : ""}`}
               onClick={() => setActiveCat(c.id)}
             >
               {c.nombre}
             </button>
           ))}
         </div>
-      </section>
+      )}
 
-      {/* 4. LISTA DE PRODUCTOS */}
-      <div className="menu-list">
-        {filteredProducts.map((p) => (
-          <ProductCard
+      {/* ── LISTA ── */}
+      <div className="mp-list">
+        {filteredProducts.map((p, i) => (
+          <div
             key={p.id}
-            product={p}
-            onOpen={() => setSelectedProduct(p)}
-          />
+            className="mp-list__item"
+            style={{ animationDelay: `${i * 40}ms` }}
+          >
+            <ProductCard
+              product={p}
+              onOpen={() => handleProductClick(p)}
+              disabled={!isOpen}
+            />
+          </div>
         ))}
+        {filteredProducts.length === 0 && (
+          <p className="mp-empty">Sin productos en esta categoría</p>
+        )}
       </div>
 
-      {/* 5. MODAL DE PRODUCTO (Personalización) */}
-      {selectedProduct && (
+      {/* ── MODAL PRODUCTO ── */}
+      {selectedProduct && isOpen && (
         <ProductModal
           product={selectedProduct}
-          onClose={() => setSelectedProduct(null)}
+          editingItem={editingCartItem}
+          onClose={() => {
+            setSelectedProduct(null);
+            setEditingCartItem(null);
+            if (editingCartItem) setShowCart(true);
+          }}
           onAdd={addToCart}
         />
       )}
 
-      {/* 6. NOTIFICACIÓN FLOTANTE (CARRITO) */}
-      {cart.length > 0 && (
-        <div className="sticky-cart">
-          <div className="cart-info">
-            <span className="badge-count">{getCartCount()}</span>
-            <div className="cart-text">
-              <small>Total estimado</small>
-              <strong>${getCartTotal()}</strong>
-            </div>
+      {/* ── STICKY CART ── */}
+      {cart.length > 0 && !showCart && isOpen && (
+        <div className="mp-cart-bar" onClick={() => setShowCart(true)}>
+          <div className="mp-cart-bar__left">
+            <span className="mp-cart-bar__count">{getCartCount()}</span>
+            <span className="mp-cart-bar__label">Ver pedido</span>
           </div>
-          <button className="btn-go-cart">Ver Carrito &rarr;</button>
+          <span className="mp-cart-bar__total">
+            ${getCartTotal().toLocaleString("es-CL")}
+          </span>
         </div>
       )}
-    </div>
-  );
-};
 
-// --- COMPONENTES HIJOS (Para mantener limpio el código) ---
-
-const ProductCard = ({ product, onOpen }) => {
-  // Lógica "Desde"
-  const getMinPrice = () => {
-    let min = product.precio_base;
-    if (product.electivos?.length > 0) {
-      const minExtra = Math.min(...product.electivos.map((e) => e.extra));
-      min += minExtra;
-    }
-    return min;
-  };
-
-  const hasOptions = product.electivos?.length > 0 || product.personalizable;
-
-  return (
-    <div className="menu-item">
-      <div className="item-info">
-        <h4>{product.nombre}</h4>
-        <p className="desc">{product.descripcion}</p>
-        <span className="item-price">
-          {hasOptions ? "Desde " : ""}${getMinPrice()}
-        </span>
-      </div>
-      <div className="item-action">
-        <button className="btn-add-item" onClick={onOpen}>
-          {hasOptions ? "Personalizar" : "Agregar"}
-        </button>
-      </div>
-    </div>
-  );
-};
-
-// --- EL CEREBRO: MODAL DE PERSONALIZACIÓN ---
-const ProductModal = ({ product, onClose, onAdd }) => {
-  const [cantidad, setCantidad] = useState(1);
-  // Estado para Electivos (Radio buttons) - Guardamos el objeto completo
-  const [seleccionElectivos, setSeleccionElectivos] = useState({});
-
-  // Estado para Ingredientes Base (Checks para quitar)
-  const [removedBase, setRemovedBase] = useState([]);
-
-  // Estado para Extras (Checks para sumar)
-  const [extras, setExtras] = useState([]);
-
-  // Calcular precio dinámico
-  const calculateTotal = () => {
-    let total = product.precio_base;
-
-    // Sumar electivos seleccionados
-    Object.values(seleccionElectivos).forEach((el) => (total += el.extra));
-
-    // Sumar extras
-    extras.forEach((ex) => (total += ex.precio));
-
-    return total * cantidad;
-  };
-
-  const handleAddToCart = () => {
-    // Validar electivos obligatorios
-    // Aquí asumimos que todos los grupos de electivos son requeridos (lógica simple por ahora)
-    if (
-      product.electivos?.length > 0 &&
-      Object.keys(seleccionElectivos).length === 0
-    ) {
-      alert("Por favor selecciona una opción obligatoria");
-      return;
-    }
-
-    const itemPedido = {
-      uid: Date.now(), // ID único temporal para el array
-      productoOriginal: product,
-      nombre: product.nombre,
-      electivos: Object.values(seleccionElectivos),
-      sinIngredientes: removedBase,
-      extras: extras,
-      cantidad: cantidad,
-      precioUnitario: calculateTotal() / cantidad,
-      precioFinal: calculateTotal(),
-    };
-
-    onAdd(itemPedido);
-  };
-
-  const toggleExtra = (ing) => {
-    if (extras.some((e) => e.nombre === ing.nombre)) {
-      setExtras(extras.filter((e) => e.nombre !== ing.nombre));
-    } else {
-      setExtras([...extras, ing]);
-    }
-  };
-
-  const toggleBase = (nombreIng) => {
-    if (removedBase.includes(nombreIng)) {
-      setRemovedBase(removedBase.filter((n) => n !== nombreIng));
-    } else {
-      setRemovedBase([...removedBase, nombreIng]);
-    }
-  };
-
-  return (
-    <div className="modal-backdrop">
-      <div className="sheet-modal">
-        <div className="sheet-header">
-          <h3>{product.nombre}</h3>
-          <button onClick={onClose} className="close-x">
-            ×
-          </button>
-        </div>
-
-        <div className="sheet-content">
-          <p className="sheet-desc">{product.descripcion}</p>
-
-          {/* 1. ELECTIVOS (Radio Buttons) */}
-          {product.electivos?.length > 0 && (
-            <div className="sheet-section">
-              <h4>Elige una opción (Obligatorio)</h4>
-              {product.electivos.map((el, idx) => (
-                <label key={idx} className="radio-row">
-                  <div className="radio-label">
-                    <input
-                      type="radio"
-                      name={`electivo_group`}
-                      onChange={() =>
-                        setSeleccionElectivos({
-                          ...seleccionElectivos,
-                          [idx]: el,
-                        })
-                      }
-                      checked={seleccionElectivos[idx]?.nombre === el.nombre}
-                    />
-                    {el.nombre}
-                  </div>
-                  <span>{el.extra > 0 ? `+ $${el.extra}` : "Incluido"}</span>
-                </label>
-              ))}
-            </div>
-          )}
-
-          {/* 2. INGREDIENTES BASE (Quitar) */}
-          {product.personalizable && product.ingBase?.length > 0 && (
-            <div className="sheet-section">
-              <h4>¿Deseas quitar algo?</h4>
-              {product.ingBase.map((ing, idx) => (
-                <label key={idx} className="check-row">
-                  <div className="check-label">
-                    <input
-                      type="checkbox"
-                      checked={!removedBase.includes(ing)} // Checkeado significa "Lo quiero"
-                      onChange={() => toggleBase(ing)}
-                    />
-                    <span>{ing}</span>
-                  </div>
-                  <span className="info-text">
-                    {removedBase.includes(ing) ? "Sin" : ""}
-                  </span>
-                </label>
-              ))}
-            </div>
-          )}
-
-          {/* 3. EXTRAS / INTERCAMBIOS */}
-          {product.personalizable && product.ingInter?.length > 0 && (
-            <div className="sheet-section">
-              <h4>Extras o Cambios</h4>
-              {product.ingInter.map((ing, idx) => (
-                <label key={idx} className="check-row">
-                  <div className="check-label">
-                    <input
-                      type="checkbox"
-                      checked={extras.some((e) => e.nombre === ing.nombre)}
-                      onChange={() => toggleExtra(ing)}
-                    />
-                    <span>{ing.nombre}</span>
-                  </div>
-                  <span>+${ing.precio}</span>
-                </label>
-              ))}
-            </div>
-          )}
-        </div>
-
-        {/* FOOTER DEL MODAL */}
-        <div className="sheet-footer">
-          <div className="qty-control">
-            <button onClick={() => setCantidad(Math.max(1, cantidad - 1))}>
-              -
-            </button>
-            <span>{cantidad}</span>
-            <button onClick={() => setCantidad(cantidad + 1)}>+</button>
-          </div>
-          <button className="btn-add-cart" onClick={handleAddToCart}>
-            Agregar ${calculateTotal()}
-          </button>
-        </div>
-      </div>
+      {/* ── CARRITO ── */}
+      {showCart && isOpen && (
+        <CarritoView
+          cart={cart}
+          business={business}
+          onClose={() => setShowCart(false)}
+          onRemoveItem={removeFromCart}
+          onEditItem={handleEditItem}
+          clearCart={() => setCart([])}
+        />
+      )}
     </div>
   );
 };
