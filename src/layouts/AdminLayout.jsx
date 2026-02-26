@@ -1,10 +1,4 @@
-import {
-  NavLink,
-  Outlet,
-  useNavigate,
-  useLocation,
-  useParams,
-} from "react-router-dom";
+import { NavLink, Outlet, useNavigate, useLocation } from "react-router-dom";
 import { ClipboardList, UtensilsCrossed, Settings, LogOut } from "lucide-react";
 import { auth, db } from "../api/firebase";
 import { signOut } from "firebase/auth";
@@ -69,7 +63,6 @@ const getEstadoReal = (isOpenManual, horarios) => {
 const AdminLayout = ({ slug, user, businessId }) => {
   const navigate = useNavigate();
   const location = useLocation();
-  const { slug } = useParams(); // slug del negocio para construir rutas
 
   const [negocioNombre, setNegocioNombre] = useState(slug);
   const [negocioLogo, setNegocioLogo] = useState("");
