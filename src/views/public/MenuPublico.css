@@ -217,7 +217,7 @@
 
 .mp-promo-card {
   position: relative;
-  max-width: 160px;
+  width: 160px;
   height: 110px;
   border-radius: 14px;
   overflow: hidden;
