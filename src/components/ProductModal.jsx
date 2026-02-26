@@ -13,6 +13,11 @@ export const ProductModal = ({
 
   const [cantidad, setCantidad] = useState(editingItem?.cantidad ?? 1);
   const [nota, setNota] = useState(editingItem?.nota ?? "");
+  const [costoExcesos, setCostoExcesos] = useState({});
+  const [removedBase, setRemovedBase] = useState(
+    editingItem?.sinIngredientes ?? [],
+  );
+  const [extras, setExtras] = useState(editingItem?.extras ?? []);
 
   const [selecciones, setSelecciones] = useState(() => {
     if (editingItem?.selecciones) return editingItem.selecciones;
@@ -23,14 +28,15 @@ export const ProductModal = ({
     return init;
   });
 
-  const [costoExcesos, setCostoExcesos] = useState({});
-  const [removedBase, setRemovedBase] = useState(
-    editingItem?.sinIngredientes ?? [],
-  );
-  const [extras, setExtras] = useState(editingItem?.extras ?? []);
+  // ── Cierre con animación ──
+  const [closing, setClosing] = useState(false);
+  const handleClose = () => {
+    if (closing) return;
+    setClosing(true);
+    setTimeout(onClose, 300);
+  };
 
   // ── Handlers ──
-
   const handleSingle = (gi, opcion) => {
     setSelecciones({ ...selecciones, [gi]: opcion });
   };
@@ -41,14 +47,18 @@ export const ProductModal = ({
     ];
     const totalActual = current.reduce((s, o) => s + o.cantidad, 0);
 
-    // Bloquear si se alcanza maxSeleccion
     if (delta > 0 && grupo.maxSeleccion && totalActual >= grupo.maxSeleccion)
       return;
 
     const existingIdx = current.findIndex((o) => o.nombre === opcion.nombre);
 
+    // modoIncluidas: tiene limite pero NO maxSeleccion → primeras N gratis, el resto cobra exceso
+    // modoPrecio:    tiene maxSeleccion pero NO limite  → cada opción cobra su extra siempre
+    // Sin restricción: sin límite ni máximo → todo gratis (extra 0 en opciones)
+    const modoIncluidas = !!grupo.limite && !grupo.maxSeleccion;
+
     if (delta > 0) {
-      if (grupo.limite && totalActual >= grupo.limite) {
+      if (modoIncluidas && totalActual >= grupo.limite) {
         setCostoExcesos((prev) => ({
           ...prev,
           [gi]: (prev[gi] || 0) + (opcion.extra || 0),
@@ -63,7 +73,7 @@ export const ProductModal = ({
         current.push({ ...opcion, cantidad: 1 });
       }
     } else {
-      if (grupo.limite && totalActual > grupo.limite) {
+      if (modoIncluidas && totalActual > grupo.limite) {
         setCostoExcesos((prev) => ({
           ...prev,
           [gi]: Math.max(0, (prev[gi] || 0) - (opcion.extra || 0)),
@@ -83,23 +93,26 @@ export const ProductModal = ({
   };
 
   // ── Precio ──
-
   const precioGrupos = grupos.reduce((acc, g, gi) => {
     if (g.tipo === "single") return acc + (selecciones[gi]?.extra || 0);
+    // modoPrecio (maxSeleccion sin limite): cada opción elegida cobra su extra × cantidad
+    if (g.maxSeleccion && !g.limite) {
+      const sel = Array.isArray(selecciones[gi]) ? selecciones[gi] : [];
+      return acc + sel.reduce((s, o) => s + (o.extra || 0) * o.cantidad, 0);
+    }
+    // modoIncluidas (limite sin maxSeleccion): usa costoExcesos acumulado
     return acc + (costoExcesos[gi] || 0);
   }, 0);
-
   const precioExtras = extras.reduce((acc, e) => acc + e.precio, 0);
   const totalUnitario = product.precio_base + precioGrupos + precioExtras;
   const totalFinal = totalUnitario * cantidad;
 
   // ── Validación ──
-
   const handleAddToCart = () => {
     for (let gi = 0; gi < grupos.length; gi++) {
       const g = grupos[gi];
+      const sel = selecciones[gi];
       if (g.requerido) {
-        const sel = selecciones[gi];
         if (g.tipo === "single" && !sel) {
           alert(`Elige una opción en "${g.grupo}"`);
           return;
@@ -113,18 +126,23 @@ export const ProductModal = ({
         }
       }
     }
-    onAdd({
-      uid: editingItem?.uid ?? Date.now(),
-      productoOriginal: product,
-      nombre: product.nombre,
-      selecciones,
-      sinIngredientes: removedBase,
-      extras,
-      nota: product.permitirNota ? nota.trim() : "",
-      cantidad,
-      precioUnitario: totalUnitario,
-      precioFinal: totalFinal,
-    });
+    // Animar cierre y luego llamar onAdd
+    if (closing) return;
+    setClosing(true);
+    setTimeout(() => {
+      onAdd({
+        uid: editingItem?.uid ?? Date.now(),
+        productoOriginal: product,
+        nombre: product.nombre,
+        selecciones,
+        sinIngredientes: removedBase,
+        extras,
+        nota: product.permitirNota ? nota.trim() : "",
+        cantidad,
+        precioUnitario: totalUnitario,
+        precioFinal: totalFinal,
+      });
+    }, 300);
   };
 
   const toggleExtra = (ing) => {
@@ -141,15 +159,15 @@ export const ProductModal = ({
 
   return (
     <div
-      className="pm-backdrop"
-      onClick={(e) => e.target === e.currentTarget && onClose()}
+      className={`pm-backdrop ${closing ? "pm-backdrop--closing" : ""}`}
+      onClick={(e) => e.target === e.currentTarget && handleClose()}
     >
-      <div className="pm-sheet">
+      <div className={`pm-sheet ${closing ? "pm-sheet--closing" : ""}`}>
         {/* Imagen de cabecera si existe */}
         {product.imagen && (
           <div className="pm-img-header">
             <img src={product.imagen} alt={product.nombre} />
-            <button className="pm-close-float" onClick={onClose}>
+            <button className="pm-close-float" onClick={handleClose}>
               ✕
             </button>
           </div>
@@ -164,7 +182,7 @@ export const ProductModal = ({
                 <p className="pm-desc">{product.descripcion}</p>
               )}
             </div>
-            <button className="pm-close" onClick={onClose}>
+            <button className="pm-close" onClick={handleClose}>
               ✕
             </button>
           </div>
@@ -196,7 +214,6 @@ export const ProductModal = ({
             const excedidoGratis = g.limite && totalUnidades > g.limite;
             const costoExcesoActual = costoExcesos[gi] || 0;
 
-            // Texto descriptivo del grupo
             const grupoInfo = [];
             if (g.tipo === "single") grupoInfo.push("Elige uno");
             if (g.tipo === "multiple") {
@@ -271,7 +288,9 @@ export const ProductModal = ({
                       return (
                         <div
                           key={oi}
-                          className={`pm-option pm-option--multi ${cantidadSel > 0 ? "pm-option--selected" : ""} ${bloqueadoAgregar ? "pm-option--disabled" : ""}`}
+                          className={`pm-option pm-option--multi
+                          ${cantidadSel > 0 ? "pm-option--selected" : ""}
+                          ${bloqueadoAgregar ? "pm-option--disabled" : ""}`}
                         >
                           <div className="pm-option-left">
                             <span className="pm-option-name">{op.nombre}</span>
@@ -313,7 +332,7 @@ export const ProductModal = ({
                     })}
                 </div>
 
-                {/* Indicador de progreso para grupos múltiples con límite */}
+                {/* Barra de progreso */}
                 {g.tipo === "multiple" && totalUnidades > 0 && (
                   <div
                     className={`pm-limit-bar ${excedidoGratis ? "pm-limit-bar--over" : ""}`}
@@ -430,7 +449,7 @@ export const ProductModal = ({
             </div>
           )}
 
-          {/* NOTA DEL CLIENTE */}
+          {/* NOTA */}
           {product.permitirNota && (
             <div className="pm-section">
               <div className="pm-section-header">

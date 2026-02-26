@@ -1,5 +1,3 @@
-/* ── Reutiliza los estilos originales + nuevos para la sección de apariencia ── */
-
 .config-view {
   max-width: 700px;
   margin: 0 auto;
@@ -68,7 +66,8 @@
 .config-section input[type="tel"],
 .config-section input[type="email"],
 .config-section input[type="number"],
-.config-section input[type="time"] {
+.config-section input[type="time"],
+.config-section input[type="url"] {
   width: 100%;
   padding: 9px 12px;
   border: 1.5px solid #e2e8f0;
@@ -84,6 +83,134 @@
 .config-section input:focus {
   border-color: #3b82f6;
   background: #fff;
+}
+
+/* ── LOGO ── */
+.logo-upload-zone {
+  margin-top: 4px;
+}
+
+/* Estado vacío — botón de drop */
+.logo-drop {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 28px 20px;
+  background: #f8fafc;
+  border: 2px dashed #e2e8f0;
+  border-radius: 14px;
+  cursor: pointer;
+  transition: border-color 0.2s, background 0.2s;
+}
+
+.logo-drop:hover {
+  border-color: #94a3b8;
+  background: #f1f5f9;
+}
+
+.logo-drop--loading {
+  cursor: not-allowed;
+  opacity: 0.7;
+}
+
+.logo-drop__icon { font-size: 28px; line-height: 1; }
+
+.logo-drop__text {
+  font-size: 14px;
+  font-weight: 700;
+  color: #334155;
+}
+
+.logo-drop__hint {
+  font-size: 11px;
+  color: #94a3b8;
+  font-weight: 500;
+}
+
+.logo-drop__spinner {
+  width: 22px;
+  height: 22px;
+  border: 2.5px solid #e2e8f0;
+  border-top-color: #3b82f6;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+  display: inline-block;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+/* Estado con logo — preview */
+.logo-preview {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 14px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 14px;
+}
+
+.logo-preview__img-wrap {
+  width: 72px;
+  height: 72px;
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+
+.logo-preview__img {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+  display: block;
+}
+
+.logo-preview__actions {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.logo-btn {
+  padding: 7px 14px;
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.15s;
+  border: none;
+}
+
+.logo-btn--change {
+  background: #0f172a;
+  color: #fff;
+}
+.logo-btn--change:hover:not(:disabled) { background: #1e293b; }
+
+.logo-btn--remove {
+  background: none;
+  color: #ef4444;
+  border: 1px solid #fecaca;
+}
+.logo-btn--remove:hover:not(:disabled) { background: #fee2e2; }
+
+.logo-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+.logo-error {
+  margin-top: 8px;
+  font-size: 12px;
+  color: #dc2626;
+  font-weight: 600;
 }
 
 /* ── APARIENCIA: SELECTOR DE TEMA ── */
@@ -108,10 +235,7 @@
   color: #64748b;
 }
 
-.tema-btn:hover {
-  border-color: #94a3b8;
-  background: #f1f5f9;
-}
+.tema-btn:hover { border-color: #94a3b8; background: #f1f5f9; }
 
 .tema-btn--active {
   border-color: #3b82f6;
@@ -127,26 +251,27 @@
   flex-shrink: 0;
 }
 
-.tema-btn__preview--dark {
-  background: linear-gradient(135deg, #111110 50%, #1e1e1c 50%);
+.tema-btn__preview--dark  { background: linear-gradient(135deg, #111110 50%, #1e1e1c 50%); }
+.tema-btn__preview--light { background: linear-gradient(135deg, #fafaf8 50%, #ffffff 50%); }
+
+.tema-btn__label { flex: 1; text-align: left; }
+.tema-btn__check { font-size: 13px; color: #3b82f6; font-weight: 800; }
+
+/* ── GRUPOS DE ACENTO ── */
+.acento-grupo {
+  margin-bottom: 14px;
 }
 
-.tema-btn__preview--light {
-  background: linear-gradient(135deg, #fafaf8 50%, #ffffff 50%);
+.acento-grupo__label {
+  display: block;
+  font-size: 11px;
+  font-weight: 700;
+  color: #64748b;
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  margin-bottom: 8px;
 }
 
-.tema-btn__label {
-  flex: 1;
-  text-align: left;
-}
-
-.tema-btn__check {
-  font-size: 13px;
-  color: #3b82f6;
-  font-weight: 800;
-}
-
-/* ── APARIENCIA: PALETA DE ACENTOS ── */
 .acento-grid {
   display: flex;
   flex-wrap: wrap;
@@ -164,14 +289,11 @@
   align-items: center;
   justify-content: center;
   transition: transform 0.15s, border-color 0.15s;
-  position: relative;
   outline: none;
   box-shadow: 0 1px 4px rgba(0,0,0,0.15);
 }
 
-.acento-swatch:hover {
-  transform: scale(1.15);
-}
+.acento-swatch:hover { transform: scale(1.15); }
 
 .acento-swatch--active {
   border-color: #0f172a;
@@ -183,6 +305,109 @@
   font-weight: 900;
   line-height: 1;
 }
+
+/* ── COLOR PERSONALIZADO ── */
+.acento-custom {
+  margin-top: 4px;
+  padding: 14px;
+  background: #f8fafc;
+  border: 1.5px dashed #e2e8f0;
+  border-radius: 12px;
+  transition: border-color 0.2s, background 0.2s;
+}
+
+.acento-custom--active {
+  background: #eff6ff;
+  border-color: #3b82f6;
+  border-style: solid;
+}
+
+.acento-custom__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+
+.acento-custom__title {
+  font-size: 12px;
+  font-weight: 700;
+  color: #475569;
+}
+
+.acento-custom__badge {
+  font-size: 10px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: #1d4ed8;
+  background: #dbeafe;
+  padding: 2px 8px;
+  border-radius: 20px;
+}
+
+.acento-custom__warning {
+  font-size: 11px;
+  color: #92400e;
+  background: #fef3c7;
+  border: 1px solid #fde68a;
+  border-radius: 8px;
+  padding: 8px 10px;
+  line-height: 1.5;
+  margin-bottom: 10px;
+}
+
+.acento-custom__row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+/* Swatch visual que muestra el color elegido en el picker */
+.acento-custom__current {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  border: 2px solid rgba(0,0,0,0.1);
+  flex-shrink: 0;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.15);
+}
+
+/* El input type="color" nativo — lo reducimos al mínimo y usamos el swatch visual */
+.acento-custom__picker {
+  width: 36px;
+  height: 36px;
+  padding: 2px;
+  border: 1.5px solid #e2e8f0;
+  border-radius: 8px;
+  cursor: pointer;
+  background: #fff;
+  flex-shrink: 0;
+}
+
+.acento-custom__hex {
+  font-size: 12px;
+  font-weight: 700;
+  color: #475569;
+  font-family: monospace;
+  letter-spacing: 0.5px;
+  min-width: 60px;
+}
+
+.acento-custom__apply {
+  padding: 7px 14px;
+  background: #0f172a;
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 0.2s;
+  white-space: nowrap;
+}
+.acento-custom__apply:hover { background: #1e293b; }
 
 /* ── PREVIEW ── */
 .tema-preview {
@@ -201,6 +426,27 @@
   margin: 0 0 10px;
 }
 
+/* Mini header con logo en el preview */
+.tema-preview__header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding-bottom: 10px;
+  margin-bottom: 10px;
+}
+
+.tema-preview__logo {
+  width: 28px;
+  height: 28px;
+  object-fit: contain;
+  border-radius: 4px;
+}
+
+.tema-preview__biz-name {
+  font-size: 13px;
+  font-weight: 700;
+}
+
 .tema-preview__card {
   border-radius: 12px;
   padding: 12px 14px;
@@ -215,24 +461,9 @@
   margin-bottom: 10px;
 }
 
-.tema-preview__name {
-  font-size: 13px;
-  font-weight: 700;
-  margin: 0 0 2px;
-  transition: color 0.3s;
-}
-
-.tema-preview__sub {
-  font-size: 10px;
-  margin: 0;
-  transition: color 0.3s;
-}
-
-.tema-preview__price {
-  font-size: 15px;
-  font-weight: 800;
-  transition: color 0.3s;
-}
+.tema-preview__name  { font-size: 13px; font-weight: 700; margin: 0 0 2px; transition: color 0.3s; }
+.tema-preview__sub   { font-size: 10px; margin: 0; transition: color 0.3s; }
+.tema-preview__price { font-size: 15px; font-weight: 800; transition: color 0.3s; }
 
 .tema-preview__btn {
   padding: 8px 14px;
@@ -274,10 +505,10 @@
   background: #f8fafc;
 }
 
-.entrega-card.active  { border-color: #3b82f6; background: #eff6ff; }
-.entrega-card:hover   { border-color: #94a3b8; }
-.entrega-icon         { font-size: 24px; }
-.entrega-label        { font-size: 13px; font-weight: 700; color: #334155; }
+.entrega-card.active { border-color: #3b82f6; background: #eff6ff; }
+.entrega-card:hover  { border-color: #94a3b8; }
+.entrega-icon        { font-size: 24px; }
+.entrega-label       { font-size: 13px; font-weight: 700; color: #334155; }
 
 .entrega-badge {
   font-size: 10px;

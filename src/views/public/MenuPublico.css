@@ -23,12 +23,13 @@
 * { box-sizing: border-box; }
 
 .mp {
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
   min-height: 100dvh;
   background: var(--mp-bg);
   color: var(--mp-text);
   font-family: var(--mp-font-body);
-  padding-bottom: 100px;
-  /* Transición suave al cambiar de tema en el preview */
   transition: background 0.3s, color 0.3s;
 }
 
@@ -71,17 +72,44 @@
 
 /* ── HEADER ── */
 .mp-header {
-  padding: 28px 16px 20px;
-  border-bottom: 1px solid var(--mp-border);
+  padding: 15px 15px 0;
+}
+
+.mp-header .logo-img {
+  max-height: 6rem;
+  max-width: 6rem;
+  border-radius: 100%;
 }
 
 .mp-header__inner {
   display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  gap: 12px;
+  align-items: center;
+  gap: 10px;
 }
 
+.titulo-ubi {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.ubi-status {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+
+.ubi-status p {
+  font-size: 13px;
+  color: var(--mp-muted);
+  display: flex;
+  gap: 5px;
+  align-items: center;
+}
+.ubi-status .ubi{
+  text-decoration: underline;
+}
 .mp-header__name {
   font-family: var(--mp-font-display);
   font-size: clamp(26px, 7vw, 36px);
@@ -91,6 +119,24 @@
   line-height: 1.1;
   letter-spacing: -0.5px;
 }
+
+/* ── BOTÓN HORARIO ── */
+.mp-horario-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  background: none;
+  border: none;
+  text-decoration: underline;
+  color: var(--mp-muted);
+  font-family: var(--mp-font-body);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: color 0.2s, border-color 0.2s, background 0.2s;
+  white-space: nowrap;
+}
+
 
 /* ── STATUS ── */
 .mp-status {
@@ -146,23 +192,25 @@
 /* ── SECTION LABEL ── */
 .mp-section-label {
   font-family: var(--mp-font-body);
-  font-size: 10px;
+  font-size: 12px;
   font-weight: 600;
-  text-transform: uppercase;
   letter-spacing: 2px;
   color: var(--mp-muted);
-  padding: 0 16px;
-  margin: 0 0 10px;
+  padding: 0 15px;
 }
 
 /* ── PROMOCIONES ── */
-.mp-promos { padding-top: 24px; }
+.mp-promos {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
 
 .mp-promos__scroll {
   display: flex;
   gap: 10px;
   overflow-x: auto;
-  padding: 0 16px 4px;
+  padding: 0 15px;
   scrollbar-width: none;
 }
 .mp-promos__scroll::-webkit-scrollbar { display: none; }
@@ -206,7 +254,7 @@
   font-family: var(--mp-font-display);
   font-size: 13px;
   font-weight: 600;
-  color: #fff;
+  color: var(--mp-text);
   line-height: 1.2;
   text-align: left;
 }
@@ -222,9 +270,9 @@
 /* ── CATEGORÍAS ── */
 .mp-cats {
   display: flex;
-  gap: 6px;
+  gap: 10px;
   overflow-x: auto;
-  padding: 20px 16px 0;
+  padding: 0 15px;
   scrollbar-width: none;
 }
 .mp-cats::-webkit-scrollbar { display: none; }
@@ -236,7 +284,7 @@
   font-family: var(--mp-font-body);
   font-size: 12px;
   font-weight: 500;
-  padding: 6px 14px;
+  padding: 10px 20px;
   border-radius: 20px;
   white-space: nowrap;
   cursor: pointer;
@@ -253,15 +301,15 @@
   background: var(--mp-accent);
   color: var(--mp-bg);
   border-color: var(--mp-accent);
-  font-weight: 600;
+  font-weight: 500;
 }
 
 /* ── LISTA DE PRODUCTOS ── */
 .mp-list {
   display: flex;
   flex-direction: column;
-  padding: 16px 16px 0;
-  gap: 8px;
+  padding: 0 15px 85px;
+  gap: 10px;
 }
 
 .mp-list__item { animation: mp-fade-in 0.3s ease both; }
@@ -282,13 +330,13 @@
 /* ── STICKY CART ── */
 .mp-cart-bar {
   position: fixed;
-  bottom: 16px;
-  left: 16px;
-  right: 16px;
-  background: var(--mp-cart-bg);
+  bottom: 15px;
+  left: 15px;
+  right: 15px;
+  background: var(--mp-accent);
   color: var(--mp-cart-fg);
-  border-radius: 16px;
-  padding: 14px 18px;
+  border-radius: 15px;
+  padding: 15px 15px;
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -296,11 +344,11 @@
   z-index: 90;
   box-shadow: 0 8px 32px rgba(0,0,0,0.4);
   transition: transform 0.15s, background 0.3s, color 0.3s;
-  animation: mp-cart-in 0.3s ease;
+  animation: mp-cart-in 0.2s ease;
 }
 
 @keyframes mp-cart-in {
-  from { transform: translateY(80px); opacity: 0; }
+  from { transform: translateY(100%); opacity: 0; }
   to   { transform: translateY(0);    opacity: 1; }
 }
 
@@ -313,8 +361,8 @@
 }
 
 .mp-cart-bar__count {
-  background: var(--mp-accent);
-  color: var(--mp-bg);
+  background: var(--mp-bg);
+  color: var(--mp-text);
   width: 24px;
   height: 24px;
   border-radius: 50%;
@@ -335,4 +383,222 @@
   font-family: var(--mp-font-display);
   font-size: 16px;
   font-weight: 600;
+}
+
+/* ══════════════════════════════════════════
+   MODAL HORARIOS
+   Sube desde abajo igual que ProductModal
+═══════════════════════════════════════════ */
+.hor-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  display: flex;
+  align-items: flex-end;
+  animation: hor-backdrop-in 0.3s ease forwards;
+}
+
+@keyframes hor-backdrop-in {
+  from { background: rgba(0,0,0,0);   }
+  to   { background: rgba(0,0,0,0.6); }
+}
+
+.hor-backdrop--closing {
+  animation: hor-backdrop-out 0.3s ease forwards;
+  pointer-events: none;
+}
+
+@keyframes hor-backdrop-out {
+  from { background: rgba(0,0,0,0.6); }
+  to   { background: rgba(0,0,0,0);   }
+}
+
+/* Sheet */
+.hor-sheet {
+  width: 100%;
+  max-height: 80dvh;
+  background: var(--mp-card);
+  border-radius: 24px 24px 0 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  animation: hor-slide-up 0.35s cubic-bezier(0.32, 0.72, 0, 1) forwards;
+}
+
+@keyframes hor-slide-up {
+  from { transform: translateY(100%); }
+  to   { transform: translateY(0);    }
+}
+
+.hor-sheet--closing {
+  animation: hor-slide-down 0.3s cubic-bezier(0.32, 0.72, 0, 1) forwards;
+}
+
+@keyframes hor-slide-down {
+  from { transform: translateY(0);    }
+  to   { transform: translateY(100%); }
+}
+
+/* Handle */
+.hor-handle {
+  width: 36px;
+  height: 4px;
+  background: var(--mp-border);
+  border-radius: 2px;
+  margin: 12px auto 0;
+  flex-shrink: 0;
+}
+
+/* Header */
+.hor-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 16px 20px 14px;
+  border-bottom: 1px solid var(--mp-border);
+  flex-shrink: 0;
+}
+
+.hor-header__left {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.hor-title {
+  font-family: var(--mp-font-display);
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--mp-text);
+  margin: 0;
+}
+
+.hor-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-family: var(--mp-font-body);
+  font-size: 11px;
+  font-weight: 600;
+  padding: 3px 10px;
+  border-radius: 20px;
+}
+
+.hor-status--open {
+  background: rgba(93,186,106,0.12);
+  color: var(--mp-open);
+  border: 1px solid rgba(93,186,106,0.25);
+}
+
+.hor-status--closed {
+  background: rgba(224,92,92,0.1);
+  color: var(--mp-closed);
+  border: 1px solid rgba(224,92,92,0.2);
+}
+
+.hor-status__dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+.hor-status--open .hor-status__dot {
+  animation: mp-pulse-green 2s infinite;
+}
+
+.hor-close {
+  background: var(--mp-surface);
+  border: 1px solid var(--mp-border);
+  border-radius: 50%;
+  width: 30px;
+  height: 30px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--mp-muted);
+  font-size: 13px;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: color 0.2s, background 0.2s;
+}
+.hor-close:hover { color: var(--mp-text); background: var(--mp-border); }
+
+/* Body — lista de días */
+.hor-body {
+  overflow-y: auto;
+  padding: 8px 0 24px;
+  scrollbar-width: none;
+}
+.hor-body::-webkit-scrollbar { display: none; }
+
+.hor-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 20px;
+  gap: 12px;
+  border-bottom: 1px solid var(--mp-border);
+  transition: background 0.15s;
+}
+
+.hor-row:last-child { border-bottom: none; }
+
+/* Día de hoy resaltado */
+.hor-row--hoy {
+  background: var(--mp-accent-dim);
+}
+
+.hor-row__dia {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-family: var(--mp-font-body);
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--mp-text);
+  min-width: 100px;
+}
+
+.hor-hoy-badge {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--mp-accent);
+  background: var(--mp-accent-dim);
+  border: 1px solid var(--mp-accent-dim);
+  padding: 1px 7px;
+  border-radius: 20px;
+}
+
+.hor-row__horario {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 2px;
+}
+
+.hor-row__time {
+  font-family: var(--mp-font-body);
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--mp-text);
+}
+
+.hor-row__descanso {
+  font-family: var(--mp-font-body);
+  font-size: 11px;
+  color: var(--mp-muted);
+  font-weight: 400;
+}
+
+.hor-row__cerrado {
+  font-family: var(--mp-font-body);
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--mp-muted);
+  font-style: italic;
 }

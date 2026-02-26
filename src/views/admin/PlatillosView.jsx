@@ -12,13 +12,86 @@ import {
 import { db, auth } from "../../api/firebase";
 import "./PlatillosView.css";
 
-const CLOUD_NAME = "djghs9u2k";
-const UPLOAD_PRESET = "menu_preset";
+const CLOUD_NAME = import.meta.env.VITE_CLOUDINARY_CLOUD_NAME;
+const UPLOAD_PRESET = import.meta.env.VITE_CLOUDINARY_UPLOAD_PRESET;
+
+// ─────────────────────────────────────────────
+// Helpers de retrocompatibilidad
+// Un producto antiguo puede tener categoria_id (string) en vez de categorias (array)
+// ─────────────────────────────────────────────
+const getCategoriasArray = (p) => {
+  if (Array.isArray(p.categorias) && p.categorias.length) return p.categorias;
+  if (p.categoria_id) return [p.categoria_id];
+  return [];
+};
+
+// ─────────────────────────────────────────────
+// Tooltip de ayuda inline
+// ─────────────────────────────────────────────
+const AYUDA = {
+  maxSeleccion: {
+    titulo: "Límite de cantidad",
+    desc: "El cliente puede elegir varias opciones, pero hasta un máximo que tú defines. Cada opción cobra su propio precio extra desde la primera selección.",
+    ejemplos: [
+      "Roll de sushi: elige hasta 2 proteínas (Salmón +$1.500, Pollo +$1.000). Si elige ambas, se cobran los dos extras.",
+      "Combo bebida: elige hasta 1 bebida de las disponibles.",
+      "Pizza: elige hasta 3 ingredientes, cada uno con su precio.",
+    ],
+  },
+  limite: {
+    titulo: "Incluidas sin costo",
+    desc: "El cliente puede elegir varias opciones y las primeras N van incluidas en el precio base. Si elige más de N, el exceso cobra el precio extra de cada opción.",
+    ejemplos: [
+      "Empanada: 2 ingredientes incluidos. Si quiere un 3ro, se cobra el extra del ingrediente elegido.",
+      "Burrito: 3 salsas incluidas, cada salsa adicional cobra +$300.",
+      "Helado: 2 toppings gratis, los siguientes cobran +$500 c/u.",
+    ],
+  },
+  sinRestriccion: {
+    titulo: "Sin restricciones",
+    desc: "El cliente puede agregar cuantas opciones quiera sin límite. Útil cuando todas las opciones son gratuitas o cuando no hay restricción de cantidad.",
+    ejemplos: [
+      "Condimentos: ketchup, mostaza, mayo — todos gratis, sin límite.",
+      "Punto de cocción: a elección libre del cliente.",
+    ],
+  },
+};
+
+const TooltipAyuda = ({ tipo, onClose }) => {
+  const info = AYUDA[tipo];
+  if (!info) return null;
+  return (
+    <div
+      className="tooltip-overlay"
+      onClick={(e) => e.target === e.currentTarget && onClose()}
+    >
+      <div className="tooltip-box">
+        <div className="tooltip-header">
+          <h4 className="tooltip-title">{info.titulo}</h4>
+          <button className="tooltip-close" onClick={onClose}>
+            ✕
+          </button>
+        </div>
+        <p className="tooltip-desc">{info.desc}</p>
+        <div className="tooltip-ejemplos">
+          <span className="tooltip-ejemplos-label">Ejemplos de uso</span>
+          <ul>
+            {info.ejemplos.map((ej, i) => (
+              <li key={i}>{ej}</li>
+            ))}
+          </ul>
+        </div>
+      </div>
+    </div>
+  );
+};
 
 // ─────────────────────────────────────────────
 // GrupoEditor
 // ─────────────────────────────────────────────
 const GrupoEditor = ({ grupo, index, onChange, onRemove }) => {
+  const [ayudaActiva, setAyudaActiva] = useState(null);
+
   const update = (field, value) => {
     const updated = { ...grupo, [field]: value };
     if (field === "tipo" && value === "single") {
@@ -26,6 +99,18 @@ const GrupoEditor = ({ grupo, index, onChange, onRemove }) => {
       updated.maxSeleccion = null;
     }
     onChange(index, updated);
+  };
+
+  const handleMaxSeleccionToggle = () => {
+    onChange(index, { ...grupo, maxSeleccion: 2, limite: null });
+  };
+
+  const handleLimiteToggle = () => {
+    onChange(index, { ...grupo, limite: 2, maxSeleccion: null });
+  };
+
+  const handleSinRestriccion = () => {
+    onChange(index, { ...grupo, maxSeleccion: null, limite: null });
   };
 
   const updateOpcion = (oi, field, value) => {
@@ -54,8 +139,20 @@ const GrupoEditor = ({ grupo, index, onChange, onRemove }) => {
     grupo.maxSeleccion !== null && grupo.maxSeleccion !== undefined;
   const tieneLimiteGratis = grupo.limite !== null && grupo.limite !== undefined;
 
+  // Texto de la columna de precio cambia según el modo activo
+  const getPrecioHeader = () => {
+    if (grupo.tipo === "single") return "$ extra (0 = incluido)";
+    if (tieneMaximo) return "$ extra por opción (0 = gratis)";
+    if (tieneLimiteGratis) return "$ si excede el límite (0 = siempre gratis)";
+    return "$ extra (0 = gratis)";
+  };
+
   return (
     <div className="grupo-editor">
+      {ayudaActiva && (
+        <TooltipAyuda tipo={ayudaActiva} onClose={() => setAyudaActiva(null)} />
+      )}
+
       {/* Cabecera */}
       <div className="grupo-header">
         <div className="grupo-header-fields">
@@ -82,15 +179,11 @@ const GrupoEditor = ({ grupo, index, onChange, onRemove }) => {
         </button>
       </div>
 
-      {/* Lista de opciones */}
+      {/* Opciones */}
       <div className="grupo-opciones">
         <div className="opciones-header-row">
           <span>Opción</span>
-          <span>
-            {grupo.tipo === "multiple"
-              ? "$ cobro si excede gratis (0 = siempre gratis)"
-              : "$ cobro adicional (0 = incluido)"}
-          </span>
+          <span>{getPrecioHeader()}</span>
         </div>
         {grupo.opciones.map((op, oi) => (
           <div key={oi} className="opcion-row">
@@ -127,18 +220,28 @@ const GrupoEditor = ({ grupo, index, onChange, onRemove }) => {
       {/* Config para grupos múltiples */}
       {grupo.tipo === "multiple" && (
         <div className="grupo-multiple-config">
-          {/* ── LÍMITE MÁXIMO DE SELECCIÓN ── */}
+          {/* Opción 1: Límite de cantidad (maxSeleccion) */}
           <div className="config-row-check">
-            <label className="config-check-label">
-              <input
-                type="checkbox"
-                checked={tieneMaximo}
-                onChange={(e) =>
-                  update("maxSeleccion", e.target.checked ? 2 : null)
-                }
-              />
-              <span>Limitar cuántas puede elegir el cliente</span>
-            </label>
+            <div className="config-row-label-row">
+              <label className="config-check-label">
+                <input
+                  type="radio"
+                  name={`multi-mode-${index}`}
+                  checked={tieneMaximo}
+                  onChange={handleMaxSeleccionToggle}
+                />
+                <span>
+                  Limitar cuántas puede elegir — cada una cobra su precio
+                </span>
+              </label>
+              <button
+                type="button"
+                className="btn-ayuda"
+                onClick={() => setAyudaActiva("maxSeleccion")}
+              >
+                ?
+              </button>
+            </div>
             {tieneMaximo && (
               <div className="config-inline-input">
                 <span className="config-inline-label">Máximo:</span>
@@ -155,34 +258,39 @@ const GrupoEditor = ({ grupo, index, onChange, onRemove }) => {
                 />
                 <span className="limite-hint">
                   {grupo.maxSeleccion
-                    ? `El cliente puede elegir hasta ${grupo.maxSeleccion} opción${grupo.maxSeleccion > 1 ? "es" : ""}`
+                    ? `Hasta ${grupo.maxSeleccion} opción${grupo.maxSeleccion > 1 ? "es" : ""}, cada una cobra su extra`
                     : ""}
                 </span>
               </div>
             )}
           </div>
 
-          {/* ── INCLUIDAS SIN COSTO ── */}
+          {/* Opción 2: Incluidas gratis (limite) */}
           <div className="config-row-check">
-            <label className="config-check-label">
-              <input
-                type="checkbox"
-                checked={tieneLimiteGratis}
-                onChange={(e) =>
-                  update(
-                    "limite",
-                    e.target.checked ? (grupo.maxSeleccion ?? 1) : null,
-                  )
-                }
-              />
-              <span>Algunas opciones van incluidas sin costo extra</span>
-            </label>
+            <div className="config-row-label-row">
+              <label className="config-check-label">
+                <input
+                  type="radio"
+                  name={`multi-mode-${index}`}
+                  checked={tieneLimiteGratis}
+                  onChange={handleLimiteToggle}
+                />
+                <span>Primeras N incluidas — el exceso cobra extra</span>
+              </label>
+              <button
+                type="button"
+                className="btn-ayuda"
+                onClick={() => setAyudaActiva("limite")}
+              >
+                ?
+              </button>
+            </div>
             {tieneLimiteGratis && (
               <div className="config-inline-input">
                 <span className="config-inline-label">Gratis hasta:</span>
                 <input
                   type="number"
-                  min="0"
+                  min="1"
                   value={grupo.limite ?? ""}
                   onChange={(e) =>
                     update(
@@ -193,11 +301,33 @@ const GrupoEditor = ({ grupo, index, onChange, onRemove }) => {
                 />
                 <span className="limite-hint">
                   {grupo.limite
-                    ? `Las primeras ${grupo.limite} son gratis, desde la ${grupo.limite + 1}ª se cobra el precio individual`
+                    ? `Las primeras ${grupo.limite} son gratis, desde la ${grupo.limite + 1}ª se cobra el extra de la opción`
                     : ""}
                 </span>
               </div>
             )}
+          </div>
+
+          {/* Opción 3: Sin restricciones */}
+          <div className="config-row-check">
+            <div className="config-row-label-row">
+              <label className="config-check-label">
+                <input
+                  type="radio"
+                  name={`multi-mode-${index}`}
+                  checked={!tieneMaximo && !tieneLimiteGratis}
+                  onChange={handleSinRestriccion}
+                />
+                <span>Sin restricciones — el cliente elige cuántas quiera</span>
+              </label>
+              <button
+                type="button"
+                className="btn-ayuda"
+                onClick={() => setAyudaActiva("sinRestriccion")}
+              >
+                ?
+              </button>
+            </div>
           </div>
         </div>
       )}
@@ -218,9 +348,8 @@ const GrupoEditor = ({ grupo, index, onChange, onRemove }) => {
     </div>
   );
 };
-
 // ─────────────────────────────────────────────
-// CatModal
+// CatModal — crear categoría
 // ─────────────────────────────────────────────
 const CatModal = ({ onSave, onClose }) => {
   const [nombre, setNombre] = useState("");
@@ -262,7 +391,7 @@ const EMPTY_FORM = {
   nombre: "",
   descripcion: "",
   precio_base: "",
-  categoria_id: "",
+  categorias: [], // array en vez de categoria_id
   es_promocion: false,
   activo: true,
   imagen: "",
@@ -288,19 +417,22 @@ const ProductModal = ({
 }) => {
   const isEditing = !!product;
 
+  // Normalizar categorías del producto a editar (retrocompatibilidad)
+  const initialCategorias = isEditing ? getCategoriasArray(product) : [];
+
   const [form, setForm] = useState(
     isEditing
       ? {
           nombre: product.nombre || "",
           descripcion: product.descripcion || "",
           precio_base: product.precio_base || "",
-          categoria_id: product.categoria_id || "",
+          categorias: initialCategorias,
           es_promocion: product.es_promocion || false,
           activo: product.activo ?? true,
           imagen: product.imagen || "",
           permitirNota: product.permitirNota || false,
         }
-      : { ...EMPTY_FORM, categoria_id: categories[0]?.id || "" },
+      : { ...EMPTY_FORM },
   );
 
   const [grupos, setGrupos] = useState(
@@ -319,6 +451,15 @@ const ProductModal = ({
   );
 
   const set = (field, val) => setForm((f) => ({ ...f, [field]: val }));
+
+  const toggleCategoria = (id) => {
+    const current = form.categorias;
+    set(
+      "categorias",
+      current.includes(id) ? current.filter((c) => c !== id) : [...current, id],
+    );
+  };
+
   const handleGrupoChange = (i, updated) =>
     setGrupos(grupos.map((g, gi) => (gi === i ? updated : g)));
   const handleGrupoRemove = (i) =>
@@ -344,6 +485,8 @@ const ProductModal = ({
     if (uploading) return alert("Espera a que termine de subir la imagen");
     if (!form.precio_base || Number(form.precio_base) <= 0)
       return alert("Ingresa un precio base válido");
+    if (form.categorias.length === 0)
+      return alert("Selecciona al menos una categoría");
 
     const cleanGrupos = grupos
       .filter((g) => g.grupo.trim() !== "")
@@ -377,7 +520,7 @@ const ProductModal = ({
         </div>
 
         <form onSubmit={handleSubmit} className="modal-form">
-          {/* ── SECCIÓN 1: Info básica ── */}
+          {/* ── 1: Info básica ── */}
           <div className="form-section">
             <div className="form-section-title">
               <span className="section-num">1</span> Información básica
@@ -403,40 +546,56 @@ const ProductModal = ({
               />
             </div>
 
-            <div className="field-row">
-              <div className="field-group">
-                <label>Precio base *</label>
-                <div className="precio-input-wrap">
-                  <span className="precio-prefix">$</span>
-                  <input
-                    type="number"
-                    min="0"
-                    placeholder="0"
-                    value={form.precio_base}
-                    onChange={(e) => set("precio_base", e.target.value)}
-                    required
-                  />
-                </div>
-                <span className="field-hint">
-                  Precio antes de electivos con costo extra
-                </span>
-              </div>
-
-              <div className="field-group">
-                <label>Categoría *</label>
-                <select
-                  value={form.categoria_id}
-                  onChange={(e) => set("categoria_id", e.target.value)}
+            <div className="field-group">
+              <label>Precio base *</label>
+              <div className="precio-input-wrap">
+                <span className="precio-prefix">$</span>
+                <input
+                  type="number"
+                  min="0"
+                  placeholder="0"
+                  value={form.precio_base}
+                  onChange={(e) => set("precio_base", e.target.value)}
                   required
-                >
-                  <option value="">Selecciona...</option>
-                  {categories.map((c) => (
-                    <option key={c.id} value={c.id}>
-                      {c.nombre}
-                    </option>
-                  ))}
-                </select>
+                />
               </div>
+              <span className="field-hint">
+                Precio antes de electivos con costo extra
+              </span>
+            </div>
+
+            {/* Selector múltiple de categorías */}
+            <div className="field-group">
+              <label>
+                Categorías *{" "}
+                <span className="field-hint">(puedes elegir varias)</span>
+              </label>
+              {categories.length === 0 ? (
+                <p className="field-hint">
+                  Crea una categoría primero usando el botón "+ Categoría"
+                </p>
+              ) : (
+                <div className="cat-checkbox-grid">
+                  {categories.map((c) => {
+                    const selected = form.categorias.includes(c.id);
+                    return (
+                      <label
+                        key={c.id}
+                        className={`cat-check-pill ${selected ? "cat-check-pill--active" : ""}`}
+                      >
+                        <input
+                          type="checkbox"
+                          style={{ display: "none" }}
+                          checked={selected}
+                          onChange={() => toggleCategoria(c.id)}
+                        />
+                        {selected && <span className="cat-check-mark">✓</span>}
+                        {c.nombre}
+                      </label>
+                    );
+                  })}
+                </div>
+              )}
             </div>
 
             <div className="checkboxes-row">
@@ -467,12 +626,11 @@ const ProductModal = ({
             </div>
           </div>
 
-          {/* ── SECCIÓN 2: Imagen ── */}
+          {/* ── 2: Imagen ── */}
           <div className="form-section">
             <div className="form-section-title">
               <span className="section-num">2</span> Foto del platillo
             </div>
-
             {uploading ? (
               <div className="upload-loader">Subiendo imagen...</div>
             ) : form.imagen ? (
@@ -503,7 +661,7 @@ const ProductModal = ({
             )}
           </div>
 
-          {/* ── SECCIÓN 3: Grupos de opciones ── */}
+          {/* ── 3: Grupos ── */}
           <div className="form-section">
             <div className="form-section-title">
               <span className="section-num">3</span> Opciones y electivos
@@ -511,17 +669,14 @@ const ProductModal = ({
                 Tipo de carne, tamaño, bebida, salsas, etc.
               </span>
             </div>
-
             {grupos.length === 0 && (
               <div className="empty-grupos">
                 <p>
-                  Sin grupos de opciones todavía. Si este platillo tiene
-                  variantes o acompañantes, agrégalos aquí. Ej: "Proteína"
-                  (elige varios, máx. 2) o "Tamaño" (elige uno)
+                  Sin grupos todavía. Agrégalos si el platillo tiene variantes.
+                  Ej: "Proteína" o "Tamaño"
                 </p>
               </div>
             )}
-
             {grupos.map((g, gi) => (
               <GrupoEditor
                 key={gi}
@@ -531,7 +686,6 @@ const ProductModal = ({
                 onRemove={handleGrupoRemove}
               />
             ))}
-
             <button
               type="button"
               className="btn-add-grupo"
@@ -541,7 +695,7 @@ const ProductModal = ({
             </button>
           </div>
 
-          {/* ── SECCIÓN 4: Personalización ── */}
+          {/* ── 4: Personalización ── */}
           <div className="form-section">
             <div className="form-section-title">
               <span className="section-num">4</span> Personalización
@@ -549,7 +703,6 @@ const ProductModal = ({
                 Quitar ingredientes y agregar extras
               </span>
             </div>
-
             <label className="check-pill">
               <input
                 type="checkbox"
@@ -558,7 +711,6 @@ const ProductModal = ({
               />
               Permitir quitar ingredientes y pedir extras con costo
             </label>
-
             {personalizable && (
               <div className="personalizable-fields">
                 <div className="field-group">
@@ -718,6 +870,25 @@ export const PlatillosView = ({ businessId }) => {
     }
   };
 
+  const handleDeleteCat = async (cat) => {
+    // Contar platillos que usan esta categoría
+    const usandola = products.filter((p) =>
+      getCategoriasArray(p).includes(cat.id),
+    ).length;
+    const msg =
+      usandola > 0
+        ? `¿Eliminar la categoría "${cat.nombre}"? ${usandola} platillo${usandola > 1 ? "s usan" : " usa"} esta categoría y quedarán sin ella.`
+        : `¿Eliminar la categoría "${cat.nombre}"?`;
+    if (!window.confirm(msg)) return;
+    try {
+      await deleteDoc(doc(db, `negocios/${tenantId}/categorias`, cat.id));
+      setCategories(categories.filter((c) => c.id !== cat.id));
+      if (filterCat === cat.id) setFilterCat("all");
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
   const toggleStatus = async (product) => {
     const newStatus = !product.activo;
     await updateDoc(doc(db, `negocios/${tenantId}/productos`, product.id), {
@@ -745,11 +916,21 @@ export const PlatillosView = ({ businessId }) => {
     setEditingProduct(p);
     setShowProductModal(true);
   };
+
+  // Filtro con retrocompatibilidad
   const filteredProducts = products.filter(
-    (p) => filterCat === "all" || p.categoria_id === filterCat,
+    (p) => filterCat === "all" || getCategoriasArray(p).includes(filterCat),
   );
-  const catName = (id) =>
-    categories.find((c) => c.id === id)?.nombre || "Sin categoría";
+
+  // Nombre de categorías para mostrar en cards (puede ser varias)
+  const catNames = (p) => {
+    const ids = getCategoriasArray(p);
+    if (ids.length === 0) return "Sin categoría";
+    return ids
+      .map((id) => categories.find((c) => c.id === id)?.nombre)
+      .filter(Boolean)
+      .join(", ");
+  };
 
   if (loading) return <div className="pv-loading">Cargando platillos...</div>;
 
@@ -767,6 +948,7 @@ export const PlatillosView = ({ businessId }) => {
         </button>
       </div>
 
+      {/* Filter bar — categorías con botón de eliminar */}
       <div className="pv-filter-bar">
         <button
           className="filter-btn filter-btn-cat"
@@ -781,17 +963,30 @@ export const PlatillosView = ({ businessId }) => {
           Todos ({products.length})
         </button>
         {categories.map((c) => {
-          const count = products.filter((p) => p.categoria_id === c.id).length;
+          const count = products.filter((p) =>
+            getCategoriasArray(p).includes(c.id),
+          ).length;
           return (
-            <button
+            <div
               key={c.id}
-              className={
-                filterCat === c.id ? "filter-btn active" : "filter-btn"
-              }
-              onClick={() => setFilterCat(c.id)}
+              className={`filter-btn-wrap ${filterCat === c.id ? "active" : ""}`}
             >
-              {c.nombre} ({count})
-            </button>
+              <button
+                className={
+                  filterCat === c.id ? "filter-btn active" : "filter-btn"
+                }
+                onClick={() => setFilterCat(c.id)}
+              >
+                {c.nombre} ({count})
+              </button>
+              <button
+                className="filter-btn-delete"
+                title={`Eliminar categoría "${c.nombre}"`}
+                onClick={() => handleDeleteCat(c)}
+              >
+                ✕
+              </button>
+            </div>
           );
         })}
       </div>
@@ -822,7 +1017,6 @@ export const PlatillosView = ({ businessId }) => {
                   <div className="pv-promo-badge">⭐ Promo</div>
                 )}
               </div>
-
               <div className="pv-card-body">
                 <div className="pv-card-top">
                   <h4 className="pv-card-nombre">{p.nombre}</h4>
@@ -830,9 +1024,8 @@ export const PlatillosView = ({ businessId }) => {
                     ${p.precio_base?.toLocaleString("es-CL")}
                   </span>
                 </div>
-                <p className="pv-card-cat">{catName(p.categoria_id)}</p>
+                <p className="pv-card-cat">{catNames(p)}</p>
 
-                {/* Tags de grupos con info de límite */}
                 {p.grupos?.length > 0 && (
                   <div className="pv-card-tags">
                     {p.grupos.map((g, i) => (
@@ -848,7 +1041,6 @@ export const PlatillosView = ({ businessId }) => {
                   </div>
                 )}
 
-                {/* Badges de features */}
                 <div className="pv-card-features">
                   {p.personalizable && (
                     <span className="pv-feature-badge">✂️ Personalizable</span>

@@ -2,6 +2,28 @@ import React, { useState } from "react";
 import { addDoc, collection, serverTimestamp } from "firebase/firestore";
 import { db } from "../../api/firebase";
 import "./CarritoView.css";
+import { ChevronLeft } from "lucide-react";
+
+const STORAGE_KEY = "mp_customer_data";
+
+// Lee los datos guardados del navegador, o devuelve vacío
+const loadCustomer = () => {
+  try {
+    const saved = localStorage.getItem(STORAGE_KEY);
+    return saved ? JSON.parse(saved) : { name: "", phone: "", address: "" };
+  } catch {
+    return { name: "", phone: "", address: "" };
+  }
+};
+
+// Guarda los datos del cliente en el navegador
+const saveCustomer = (data) => {
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+  } catch {
+    // localStorage puede estar bloqueado en modo privado — no es crítico
+  }
+};
 
 export const CarritoView = ({
   cart,
@@ -17,11 +39,8 @@ export const CarritoView = ({
 
   const defaultEntrega = tiposEntrega.retiro ? "retiro" : "delivery";
 
-  const [customer, setCustomer] = useState({
-    name: "",
-    phone: "",
-    address: "",
-  });
+  // Precarga con datos guardados si existen
+  const [customer, setCustomer] = useState(loadCustomer);
   const [deliveryType, setDeliveryType] = useState(defaultEntrega);
   const [zonaSeleccionada, setZona] = useState(null);
   const [paymentMethod, setPayment] = useState("");
@@ -29,6 +48,27 @@ export const CarritoView = ({
   const [orderId, setOrderId] = useState(null);
   const [savedTotal, setSavedTotal] = useState(0);
   const [savedPayment, setSavedPayment] = useState("");
+
+  // ── Cierre con animación ──
+  const [closing, setClosing] = useState(false);
+  const handleClose = () => {
+    if (closing) return;
+    setClosing(true);
+    setTimeout(onClose, 400);
+  };
+
+  const handleEdit = (item) => {
+    if (closing) return;
+    setClosing(true);
+    setTimeout(() => onEditItem(item), 400);
+  };
+
+  // Actualiza el estado y persiste en localStorage al mismo tiempo
+  const handleCustomerChange = (field, value) => {
+    const updated = { ...customer, [field]: value };  
+    setCustomer(updated);
+    saveCustomer(updated);
+  };
 
   const deliveryCost =
     deliveryType === "delivery" && zonaSeleccionada
@@ -137,13 +177,13 @@ export const CarritoView = ({
 
   // ── PANTALLA DE ÉXITO ──
   if (orderId) {
-    const db = config.datosBancarios || {};
+    const bancarios = config.datosBancarios || {};
     const whatsappMsg = `Hola! Hice el pedido *#${orderId.slice(-4)}*. ¿Me lo confirman?`;
     const whatsappLink = `https://wa.me/${config.whatsapp?.replace("+", "")}?text=${encodeURIComponent(whatsappMsg)}`;
 
     return (
-      <div className="cv-overlay">
-        <div className="cv-success">
+      <div className={`cv-overlay ${closing ? "cv-overlay--closing" : ""}`}>
+        <div className={`cv-success ${closing ? "cv-sheet--closing" : ""}`}>
           <div className="cv-success__icon">✓</div>
           <h2 className="cv-success__title">¡Pedido enviado!</h2>
           <p className="cv-success__sub">
@@ -158,40 +198,40 @@ export const CarritoView = ({
                 ${savedTotal.toLocaleString("es-CL")}
               </p>
               <div className="cv-bank-box__rows">
-                {db.nombre && (
+                {bancarios.nombre && (
                   <div className="cv-bank-row">
                     <span>Nombre</span>
-                    <strong>{db.nombre}</strong>
+                    <strong>{bancarios.nombre}</strong>
                   </div>
                 )}
-                {db.rut && (
+                {bancarios.rut && (
                   <div className="cv-bank-row">
                     <span>RUT</span>
-                    <strong>{db.rut}</strong>
+                    <strong>{bancarios.rut}</strong>
                   </div>
                 )}
-                {db.banco && (
+                {bancarios.banco && (
                   <div className="cv-bank-row">
                     <span>Banco</span>
-                    <strong>{db.banco}</strong>
+                    <strong>{bancarios.banco}</strong>
                   </div>
                 )}
-                {db.tipoCuenta && (
+                {bancarios.tipoCuenta && (
                   <div className="cv-bank-row">
                     <span>Tipo</span>
-                    <strong>{db.tipoCuenta}</strong>
+                    <strong>{bancarios.tipoCuenta}</strong>
                   </div>
                 )}
-                {db.nroCuenta && (
+                {bancarios.nroCuenta && (
                   <div className="cv-bank-row">
                     <span>N° cuenta</span>
-                    <strong>{db.nroCuenta}</strong>
+                    <strong>{bancarios.nroCuenta}</strong>
                   </div>
                 )}
-                {db.emailComprobante && (
+                {bancarios.emailComprobante && (
                   <div className="cv-bank-row">
                     <span>Email</span>
-                    <strong>{db.emailComprobante}</strong>
+                    <strong>{bancarios.emailComprobante}</strong>
                   </div>
                 )}
               </div>
@@ -210,7 +250,7 @@ export const CarritoView = ({
             <span>Avisar por WhatsApp</span>
             <span className="cv-btn-whatsapp__arrow">→</span>
           </a>
-          <button className="cv-btn-back" onClick={onClose}>
+          <button className="cv-btn-back" onClick={handleClose}>
             Volver al menú
           </button>
         </div>
@@ -219,13 +259,18 @@ export const CarritoView = ({
   }
 
   // ── VISTA CARRITO ──
+  const hasStoredData = !!(customer.name || customer.phone);
+
   return (
-    <div className="cv-overlay">
-      <div className="cv-sheet">
+    <div
+      className={`cv-overlay ${closing ? "cv-overlay--closing" : ""}`}
+      onClick={(e) => e.target === e.currentTarget && handleClose()}
+    >
+      <div className={`cv-sheet ${closing ? "cv-sheet--closing" : ""}`}>
         {/* Header */}
         <div className="cv-header">
-          <button className="cv-back" onClick={onClose}>
-            <span className="cv-back__arrow">←</span>
+          <button className="cv-back" onClick={handleClose}>
+            <ChevronLeft />
             <span>Volver</span>
           </button>
           <h2 className="cv-title">Tu pedido</h2>
@@ -258,7 +303,7 @@ export const CarritoView = ({
                   <div className="cv-item__actions">
                     <button
                       className="cv-item__edit"
-                      onClick={() => onEditItem(item)}
+                      onClick={() => handleEdit(item)}
                     >
                       Editar
                     </button>
@@ -329,16 +374,16 @@ export const CarritoView = ({
           <form onSubmit={handleSubmitOrder}>
             {/* ── 4. DATOS CLIENTE ── */}
             <section className="cv-section">
-              <h3 className="cv-section__title">Tus datos</h3>
-              <div className="cv-fields">
+              <div className="cv-section-title-row">
+                <h3 className="cv-section__title">Tus datos</h3>
+              </div>
+              <div className="cv-fields"> 
                 <input
                   className="cv-input"
                   required
                   placeholder="Tu nombre"
                   value={customer.name}
-                  onChange={(e) =>
-                    setCustomer({ ...customer, name: e.target.value })
-                  }
+                  onChange={(e) => handleCustomerChange("name", e.target.value)}
                 />
                 <input
                   className="cv-input"
@@ -347,7 +392,7 @@ export const CarritoView = ({
                   placeholder="WhatsApp / Teléfono"
                   value={customer.phone}
                   onChange={(e) =>
-                    setCustomer({ ...customer, phone: e.target.value })
+                    handleCustomerChange("phone", e.target.value)
                   }
                 />
                 {deliveryType === "delivery" && (
@@ -357,7 +402,7 @@ export const CarritoView = ({
                     placeholder="Dirección de envío (calle, número…)"
                     value={customer.address}
                     onChange={(e) =>
-                      setCustomer({ ...customer, address: e.target.value })
+                      handleCustomerChange("address", e.target.value)
                     }
                   />
                 )}

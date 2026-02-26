@@ -4,9 +4,38 @@ import { db } from "../../api/firebase";
 import { CarritoView } from "./CarritoView";
 import { ProductModal } from "../../components/ProductModal";
 import { ProductCard } from "../../components/ProductCard";
+import { MapPin, Clock } from "lucide-react";
 import "./MenuPublico.css";
 
-const checkIsOpen = (business) => {
+const DIAS_LABEL = {
+  lunes: "Lunes",
+  martes: "Martes",
+  miercoles: "Miércoles",
+  jueves: "Jueves",
+  viernes: "Viernes",
+  sabado: "Sábado",
+  domingo: "Domingo",
+};
+const DIAS_ORDEN = [
+  "lunes",
+  "martes",
+  "miercoles",
+  "jueves",
+  "viernes",
+  "sabado",
+  "domingo",
+];
+
+// Retrocompatibilidad: productos viejos pueden tener categoria_id (string)
+const perteneceACategoria = (product, catId) => {
+  if (Array.isArray(product.categorias) && product.categorias.length > 0) {
+    return product.categorias.includes(catId);
+  }
+  return product.categoria_id === catId;
+};
+
+// Evalúa si el local está dentro de su horario configurado (sin considerar isOpen manual)
+const checkHorario = (business) => {
   if (!business?.horarios) return true;
   const ahora = new Date();
   const dias = [
@@ -32,7 +61,19 @@ const checkIsOpen = (business) => {
   return true;
 };
 
-// Convierte hex a rgba para generar la versión dim del acento
+// El local está operativo solo si el admin lo abrió manualmente Y está dentro del horario
+const checkIsOpen = (business) => {
+  if (business?.isOpen === false) return false; // cerrado manualmente
+  return checkHorario(business);
+};
+
+// Razón por la que está cerrado (para el mensaje en el menú)
+const getCierreReason = (business) => {
+  if (business?.isOpen === false) return "manual";
+  if (!checkHorario(business)) return "horario";
+  return null;
+};
+
 const hexToRgba = (hex, alpha) => {
   const r = parseInt(hex.slice(1, 3), 16);
   const g = parseInt(hex.slice(3, 5), 16);
@@ -43,11 +84,8 @@ const hexToRgba = (hex, alpha) => {
 const aplicarTema = (tema) => {
   const root = document.documentElement;
   const acento = tema?.acento || "#ffb347";
-
-  // Acento siempre se aplica
   root.style.setProperty("--mp-accent", acento);
   root.style.setProperty("--mp-accent-dim", hexToRgba(acento, 0.15));
-
   if (tema?.modo === "light") {
     root.style.setProperty("--mp-bg", "#fafaf8");
     root.style.setProperty("--mp-surface", "#f0f0ec");
@@ -55,11 +93,9 @@ const aplicarTema = (tema) => {
     root.style.setProperty("--mp-border", "rgba(0,0,0,0.07)");
     root.style.setProperty("--mp-text", "#1a1a18");
     root.style.setProperty("--mp-muted", "#9a9890");
-    // El cart bar en light usa el color de texto oscuro sobre fondo claro
     root.style.setProperty("--mp-cart-bg", "#1a1a18");
     root.style.setProperty("--mp-cart-fg", "#fafaf8");
   } else {
-    // Restaurar dark (default)
     root.style.setProperty("--mp-bg", "#111110");
     root.style.setProperty("--mp-surface", "#1a1a18");
     root.style.setProperty("--mp-card", "#1e1e1c");
@@ -71,6 +107,87 @@ const aplicarTema = (tema) => {
   }
 };
 
+// ── Modal de horarios ──────────────────────────────────────────
+const HorariosModal = ({ horarios, isOpen, onClose }) => {
+  const [closing, setClosing] = useState(false);
+
+  const handleClose = () => {
+    if (closing) return;
+    setClosing(true);
+    setTimeout(onClose, 300);
+  };
+
+  const hoy = [
+    "domingo",
+    "lunes",
+    "martes",
+    "miercoles",
+    "jueves",
+    "viernes",
+    "sabado",
+  ][new Date().getDay()];
+
+  return (
+    <div
+      className={`hor-backdrop ${closing ? "hor-backdrop--closing" : ""}`}
+      onClick={(e) => e.target === e.currentTarget && handleClose()}
+    >
+      <div className={`hor-sheet ${closing ? "hor-sheet--closing" : ""}`}>
+        <div className="hor-handle" />
+
+        <div className="hor-header">
+          <div className="hor-header__left">
+            <h3 className="hor-title">Horarios</h3>
+            <div
+              className={`hor-status ${isOpen ? "hor-status--open" : "hor-status--closed"}`}
+            >
+              <span className="hor-status__dot" />
+              {isOpen ? "Abierto ahora" : "Cerrado ahora"}
+            </div>
+          </div>
+          <button className="hor-close" onClick={handleClose}>
+            ✕
+          </button>
+        </div>
+
+        <div className="hor-body">
+          {DIAS_ORDEN.map((dia) => {
+            const h = horarios?.[dia];
+            const esHoy = dia === hoy;
+            const abierto = h?.abierto;
+            return (
+              <div
+                key={dia}
+                className={`hor-row ${esHoy ? "hor-row--hoy" : ""}`}
+              >
+                <span className="hor-row__dia">
+                  {DIAS_LABEL[dia]}
+                  {esHoy && <span className="hor-hoy-badge">Hoy</span>}
+                </span>
+                {abierto ? (
+                  <div className="hor-row__horario">
+                    <span className="hor-row__time">
+                      {h.inicio} – {h.fin}
+                    </span>
+                    {h.descanso && h.dInicio && h.dFin && (
+                      <span className="hor-row__descanso">
+                        Descanso {h.dInicio}–{h.dFin}
+                      </span>
+                    )}
+                  </div>
+                ) : (
+                  <span className="hor-row__cerrado">Cerrado</span>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// ── Componente principal ───────────────────────────────────────
 export const MenuPublico = ({ slug }) => {
   const [business, setBusiness] = useState(null);
   const [categories, setCategories] = useState([]);
@@ -82,20 +199,42 @@ export const MenuPublico = ({ slug }) => {
   const [cart, setCart] = useState([]);
   const [showCart, setShowCart] = useState(false);
   const [editingCartItem, setEditingCartItem] = useState(null);
+  const [showHorarios, setShowHorarios] = useState(false);
+
+  useEffect(() => {
+    if (selectedProduct || showCart || showHorarios) {
+      document.body.style.overflow = "hidden";
+    } else {
+      document.body.style.overflow = "unset";
+      document.body.style.paddingRight = "0px";
+    }
+    return () => {
+      document.body.style.overflow = "unset";
+      document.body.style.paddingRight = "0px";
+    };
+  }, [selectedProduct, showCart, showHorarios]);
 
   useEffect(() => {
     if (slug) loadBusinessData();
   }, [slug]);
 
-  // Aplicar tema cuando lleguen los datos del negocio
   useEffect(() => {
     if (!business) return;
     aplicarTema(business.tema);
-    setIsOpen(checkIsOpen(business));
-    const iv = setInterval(() => setIsOpen(checkIsOpen(business)), 60000);
+    setIsOpen(checkIsOpen(business)); // combina isOpen manual + horario
+    document.title = business.nombre || "Cargando menú...";
+    if (business.logo) {
+      const link =
+        document.querySelector("link[rel*='icon']") ||
+        document.createElement("link");
+      link.type = "image/x-icon";
+      link.rel = "shortcut icon";
+      link.href = business.logo;
+      document.getElementsByTagName("head")[0].appendChild(link);
+    }
+    const iv = setInterval(() => setIsOpen(checkIsOpen(business)), 60000); // re-evalúa cada minuto
     return () => {
       clearInterval(iv);
-      // Al desmontar, restaurar variables por defecto para no afectar otras páginas
       aplicarTema({ modo: "dark", acento: "#ffb347" });
     };
   }, [business]);
@@ -114,7 +253,6 @@ export const MenuPublico = ({ slug }) => {
       }
       const bData = { id: snap.docs[0].id, ...snap.docs[0].data() };
       setBusiness(bData);
-      // Aplicar tema de inmediato, sin esperar el useEffect, para evitar flash
       aplicarTema(bData.tema);
       const [catSnap, prodSnap] = await Promise.all([
         getDocs(collection(db, `negocios/${bData.id}/categorias`)),
@@ -143,9 +281,7 @@ export const MenuPublico = ({ slug }) => {
       const nc = [...cart];
       nc[idx] = item;
       setCart(nc);
-    } else {
-      setCart([...cart, item]);
-    }
+    } else setCart([...cart, item]);
     setSelectedProduct(null);
     setEditingCartItem(null);
     if (editingCartItem) setShowCart(true);
@@ -161,10 +297,11 @@ export const MenuPublico = ({ slug }) => {
   const getCartTotal = () => cart.reduce((t, i) => t + i.precioFinal, 0);
   const getCartCount = () => cart.reduce((t, i) => t + i.cantidad, 0);
 
+  // Filtro con retrocompatibilidad
   const filteredProducts =
     activeCat === "all"
       ? products
-      : products.filter((p) => p.categoria_id === activeCat);
+      : products.filter((p) => perteneceACategoria(p, activeCat));
 
   const promos = products.filter((p) => p.es_promocion);
 
@@ -180,23 +317,45 @@ export const MenuPublico = ({ slug }) => {
   if (!business) return <div className="mp-not-found">Local no encontrado</div>;
 
   return (
-    <div className="mp">
+    <div className="mp" style={selectedProduct && { overflowY: "hidden" }}>
       {/* ── HEADER ── */}
       <header className="mp-header">
         <div className="mp-header__inner">
-          <h1 className="mp-header__name">{business.nombre}</h1>
-          <div
-            className={`mp-status ${isOpen ? "mp-status--open" : "mp-status--closed"}`}
-          >
-            <span className="mp-status__dot" />
-            {isOpen ? "Abierto" : "Cerrado"}
+          {business.logo && (
+            <img src={business.logo} alt="Logo" className="logo-img" />
+          )}
+          <div className="titulo-ubi">
+            <h1 className="mp-header__name">{business.nombre}</h1>
+            <div className="ubi-status">
+              <p>
+                {" "}
+                <MapPin size={15} />
+                {business.ubicacion}
+              </p>
+              <p>-</p>
+              {business.horarios && (
+                <button
+                  className="mp-horario-btn"
+                  onClick={() => setShowHorarios(true)}
+                >
+                  <Clock size={12} />
+                  Horario
+                </button>
+              )}
+            </div>
           </div>
         </div>
-        {!isOpen && (
-          <p className="mp-closed-msg">
-            Estamos fuera de horario o en descanso — ¡volvemos pronto!
-          </p>
-        )}
+        {!isOpen &&
+          (() => {
+            const reason = getCierreReason(business);
+            return (
+              <p className="mp-closed-msg">
+                {reason === "manual"
+                  ? "El local está cerrado por el momento — ¡volvemos pronto!"
+                  : "Estamos fuera de horario o en descanso — ¡volvemos pronto!"}
+              </p>
+            );
+          })()}
       </header>
 
       {/* ── PROMOCIONES ── */}
@@ -219,7 +378,12 @@ export const MenuPublico = ({ slug }) => {
                   />
                 )}
                 <div className="mp-promo-card__overlay">
-                  <span className="mp-promo-card__name">{p.nombre}</span>
+                  <span
+                    className="mp-promo-card__name"
+                    style={p.imagen ? { color: "#fff" } : {}}
+                  >
+                    {p.nombre}
+                  </span>
                   <span className="mp-promo-card__price">
                     ${p.precio_base?.toLocaleString("es-CL")}
                   </span>
@@ -307,6 +471,15 @@ export const MenuPublico = ({ slug }) => {
           onRemoveItem={removeFromCart}
           onEditItem={handleEditItem}
           clearCart={() => setCart([])}
+        />
+      )}
+
+      {/* ── MODAL HORARIOS ── */}
+      {showHorarios && (
+        <HorariosModal
+          horarios={business.horarios}
+          isOpen={isOpen}
+          onClose={() => setShowHorarios(false)}
         />
       )}
     </div>

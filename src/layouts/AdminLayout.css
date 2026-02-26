@@ -368,3 +368,61 @@
     padding: 10px 6px;
   }
 }
+
+/* ── Status hint — texto explicativo cuando hay conflicto toggle/horario ── */
+.status-hint {
+  font-size: 10px;
+  color: #ffffff;
+  font-weight: 600;
+  line-height: 1.4;
+  margin: 4px 0 0;
+  padding: 6px 8px;
+  background: rgba(245, 158, 11, 0.1);
+  border-radius: 7px;
+  border: 1px solid rgba(245, 158, 11, 0.25);
+}
+
+/* ── Horario pill — indicador visual del horario ── */
+.horario-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 10px;
+  font-weight: 700;
+  padding: 4px 10px;
+  border-radius: 20px;
+  margin-top: 8px;
+  width: fit-content;
+}
+
+.horario-pill--dentro {
+  background: rgba(34, 197, 94, 0.12);
+  color: #22c55e;
+  border: 1px solid rgba(34, 197, 94, 0.25);
+}
+
+.horario-pill--fuera {
+  background: rgba(100, 116, 139, 0.12);
+  color: #94a3b8;
+  border: 1px solid rgba(100, 116, 139, 0.2);
+}
+
+/* ── LOGO EN SIDEBAR ── */
+.brand-logo-wrap {
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.08);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+
+.brand-logo {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  display: block;
+}

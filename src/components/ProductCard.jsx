@@ -1,6 +1,6 @@
 import { useState } from "react";
 import "./ProductCard.css";
-
+import { ChevronDown, ChevronUp } from "lucide-react";
 export const ProductCard = ({ product, onOpen, disabled }) => {
   const [expanded, setExpanded] = useState(false);
 
@@ -52,28 +52,28 @@ export const ProductCard = ({ product, onOpen, disabled }) => {
               </div>
             )}
           </div>
-
+        </div>
+        <div className="btnPrecio">
           <div className="pcard__right">
             <span className="pcard__price">
               {hasOptions && <span className="pcard__desde">desde </span>}$
               {minPrice.toLocaleString("es-CL")}
             </span>
-            {product.descripcion && (
-              <span className="pcard__expand-hint">{expanded ? "▲" : "▼"}</span>
-            )}
           </div>
+          {product.descripcion && (
+            <span className="pcard__expand-hint">{expanded ? <ChevronUp/> : <ChevronDown/>}</span>
+          )}
+          <button
+            className={`pcard__btn ${hasOptions ? "pcard__btn--options" : ""}`}
+            onClick={(e) => {
+              e.stopPropagation();
+              if (!disabled) onOpen();
+            }}
+            disabled={disabled}
+          >
+            {hasOptions ? "Personalizar" : "Agregar"}
+          </button>
         </div>
-
-        <button
-          className={`pcard__btn ${hasOptions ? "pcard__btn--options" : ""}`}
-          onClick={(e) => {
-            e.stopPropagation();
-            if (!disabled) onOpen();
-          }}
-          disabled={disabled}
-        >
-          {hasOptions ? "Personalizar" : "Agregar"}
-        </button>
       </div>
     </article>
   );

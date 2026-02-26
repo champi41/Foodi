@@ -122,11 +122,15 @@
   margin: 0;
   font-weight: 300;
 }
-
+.btnPrecio{
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
 /* ── PRECIO ── */
 .pcard__right {
   display: flex;
-  flex-direction: column;
+  flex-direction: row;
   align-items: flex-end;
   gap: 4px;
   flex-shrink: 0;
