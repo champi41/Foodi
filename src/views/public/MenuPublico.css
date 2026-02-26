@@ -21,7 +21,9 @@
 
 /* ── BASE ── */
 * { box-sizing: border-box; }
-
+body{
+  background: var(--mp-bg);
+}
 .mp {
   display: flex;
   flex-direction: column;
