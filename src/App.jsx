@@ -4,17 +4,11 @@ import {
   Routes,
   Route,
   Navigate,
+  useParams,
 } from "react-router-dom";
-import { db } from "./api/firebase";
 import { onAuthStateChanged } from "firebase/auth";
-import { auth } from "./api/firebase";
-import {
-  collection,
-  query,
-  where,
-  getDocs,
-} from "firebase/firestore";
-import { getSubdomain } from "./utils/getSubdomain"; // Importamos la utilidad
+import { collection, query, where, getDocs } from "firebase/firestore";
+import { auth, db } from "./api/firebase";
 
 // Vistas
 import { MenuPublico } from "./views/public/MenuPublico";
@@ -23,81 +17,107 @@ import AdminLayout from "./layouts/AdminLayout";
 import { PedidosView } from "./views/admin/PedidosView";
 import { PlatillosView } from "./views/admin/PlatillosView";
 import { ConfigView } from "./views/admin/ConfigView";
-function App() {
-  const [user, setUser] = useState(null);
+
+// ── Wrapper que provee slug + businessId a las rutas anidadas ──
+// Se monta dentro del contexto del Router, por lo que useParams funciona.
+const NegocioRoutes = ({ user }) => {
+  const { slug } = useParams();
+
   const [businessId, setBusinessId] = useState(null);
-  const [authLoading, setAuthLoading] = useState(true);
   const [businessLoading, setBusinessLoading] = useState(true);
 
-  const slug = getSubdomain();
-
-  // 1. Escuchar auth
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
-      setUser(currentUser);
-      setAuthLoading(false);
-    });
-    return () => unsubscribe();
-  }, []);
-
-  // 2. Obtener el businessId del subdominio actual
-  useEffect(() => {
-    if (!slug) return;
-    const fetchBusinessId = async () => {
+    if (!slug) {
+      setBusinessLoading(false);
+      return;
+    }
+    const fetch = async () => {
       const q = query(collection(db, "negocios"), where("slug", "==", slug));
-      const snapshot = await getDocs(q);
-      if (!snapshot.empty) {
-        setBusinessId(snapshot.docs[0].id); // UID del dueño
-      }
+      const snap = await getDocs(q);
+      if (!snap.empty) setBusinessId(snap.docs[0].id);
       setBusinessLoading(false);
     };
-    fetchBusinessId();
+    fetch();
   }, [slug]);
-  
-  // 3. El usuario logueado ES el dueño de este negocio?
+
+  if (businessLoading) return null; // o un spinner
+
+  if (!businessId) return <div>404 — Local no encontrado</div>;
+
   const isOwner = user && businessId && user.uid === businessId;
+
+  return (
+    <Routes>
+      {/* Menú público */}
+      <Route index element={<MenuPublico slug={slug} />} />
+
+      {/* Login */}
+      <Route
+        path="login"
+        element={
+          isOwner ? (
+            <Navigate replace to={`/${slug}/admin`} />
+          ) : (
+            <Login slug={slug} />
+          )
+        }
+      />
+
+      {/* Admin */}
+      <Route
+        path="admin"
+        element={
+          isOwner ? (
+            <AdminLayout slug={slug} user={user} businessId={businessId} />
+          ) : (
+            <Navigate replace to={`/${slug}/login`} />
+          )
+        }
+      >
+        <Route index element={<Navigate replace to="pedidos" />} />
+        <Route path="pedidos" element={<PedidosView />} />
+        <Route
+          path="platillos"
+          element={<PlatillosView businessId={businessId} />}
+        />
+        <Route
+          path="configuracion"
+          element={<ConfigView businessId={businessId} />}
+        />
+      </Route>
+
+      {/* Cualquier otra subruta del slug */}
+      <Route path="*" element={<div>404 — Página no encontrada</div>} />
+    </Routes>
+  );
+};
+
+// ── App principal ──────────────────────────────────────────────
+function App() {
+  const [user, setUser] = useState(null);
+  const [authLoading, setAuthLoading] = useState(true);
+
+  useEffect(() => {
+    const unsub = onAuthStateChanged(auth, (u) => {
+      setUser(u);
+      setAuthLoading(false);
+    });
+    return () => unsub();
+  }, []);
+
+  if (authLoading) return null; // espera a saber si hay sesión antes de renderizar
 
   return (
     <Router>
       <Routes>
-        <Route index element={<MenuPublico slug={slug} />} />
+        {/* Raíz — podría ser una landing page o redirigir */}
+        <Route index element={<div>Bienvenido a Vito</div>} />
 
-        <Route
-          path="/login"
-          element={
-            isOwner ? <Navigate replace to="/admin" /> : <Login slug={slug} />
-          }
-        />
+        {/* Todas las rutas de un negocio viven bajo /:slug */}
+        <Route path=":slug/*" element={<NegocioRoutes user={user} />} />
 
-        <Route
-          path="/admin"
-          element={
-            isOwner ? (
-              <AdminLayout slug={slug} user={user} businessId={businessId} />
-            ) : (
-              <Navigate replace to="/login" />
-            )
-          }
-        >
-          <Route index element={<Navigate replace to="pedidos" />} />
-          <Route
-            path="pedidos"
-            element={<PedidosView/>}
-          />
-          <Route
-            path="platillos"
-            element={<PlatillosView businessId={businessId} />}
-          />
-          <Route
-            path="configuracion"
-            element={<ConfigView businessId={businessId} />}
-          />
-        </Route>
-
-        <Route
-          path="*"
-          element={<div>404 - No encontrado en este local</div>}
-        />
+        {/* 404 global */}
+        <Route path="*" element={<div>404 — Página no encontrada</div>} />
       </Routes>
     </Router>
   );
