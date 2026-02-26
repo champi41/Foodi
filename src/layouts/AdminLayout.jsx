@@ -1,4 +1,10 @@
-import { NavLink, Outlet, useNavigate, useLocation } from "react-router-dom";
+import {
+  NavLink,
+  Outlet,
+  useNavigate,
+  useLocation,
+  useParams,
+} from "react-router-dom";
 import { ClipboardList, UtensilsCrossed, Settings, LogOut } from "lucide-react";
 import { auth, db } from "../api/firebase";
 import { signOut } from "firebase/auth";
@@ -16,7 +22,8 @@ import {
 import { useEffect, useRef, useState } from "react";
 import "./AdminLayout.css";
 
-const SOUND_URL = "/sounds/noti.mp3";
+const SOUND_URL =
+  "https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3";
 
 const getHoyInicio = () => {
   const d = new Date();
@@ -62,6 +69,7 @@ const getEstadoReal = (isOpenManual, horarios) => {
 const AdminLayout = ({ slug, user, businessId }) => {
   const navigate = useNavigate();
   const location = useLocation();
+  const { slug } = useParams(); // slug del negocio para construir rutas
 
   const [negocioNombre, setNegocioNombre] = useState(slug);
   const [negocioLogo, setNegocioLogo] = useState("");
@@ -153,7 +161,7 @@ const AdminLayout = ({ slug, user, businessId }) => {
   }, [businessId, negocioNombre]);
 
   useEffect(() => {
-    if (location.pathname.includes("pedidos")) {
+    if (location.pathname.includes("/pedidos")) {
       setNewOrderAlert(false);
       document.title = `${negocioNombre} · Admin`;
     }
@@ -176,7 +184,7 @@ const AdminLayout = ({ slug, user, businessId }) => {
   const handleLogout = async () => {
     try {
       await signOut(auth);
-      navigate("/login");
+      navigate(`/${slug}/login`);
     } catch (error) {
       console.error("Error al cerrar sesión:", error);
     }
@@ -267,7 +275,7 @@ const AdminLayout = ({ slug, user, businessId }) => {
         {/* ── NAV ── */}
         <nav className="sidebar-nav">
           <NavLink
-            to="/admin/pedidos"
+            to={`/${slug}/admin/pedidos`}
             className={({ isActive }) =>
               `nav-item ${isActive ? "nav-item-active" : ""}`
             }
@@ -284,7 +292,7 @@ const AdminLayout = ({ slug, user, businessId }) => {
           </NavLink>
 
           <NavLink
-            to="/admin/platillos"
+            to={`/${slug}/admin/platillos`}
             className={({ isActive }) =>
               `nav-item ${isActive ? "nav-item-active" : ""}`
             }
@@ -294,7 +302,7 @@ const AdminLayout = ({ slug, user, businessId }) => {
           </NavLink>
 
           <NavLink
-            to="/admin/configuracion"
+            to={`/${slug}/admin/configuracion`}
             className={({ isActive }) =>
               `nav-item ${isActive ? "nav-item-active" : ""}`
             }
