@@ -16,8 +16,7 @@ import {
 import { useEffect, useRef, useState } from "react";
 import "./AdminLayout.css";
 
-const SOUND_URL =
-  "https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3";
+const SOUND_URL = "/sounds/noti.mp3";
 
 const getHoyInicio = () => {
   const d = new Date();
