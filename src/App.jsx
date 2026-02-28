@@ -17,6 +17,7 @@ import AdminLayout from "./layouts/AdminLayout";
 import { PedidosView } from "./views/admin/PedidosView";
 import { PlatillosView } from "./views/admin/PlatillosView";
 import { ConfigView } from "./views/admin/ConfigView";
+import { PersonalizacionView } from "./views/admin/Personalizacionview";
 
 // ── Wrapper que provee slug + businessId a las rutas anidadas ──
 // Se monta dentro del contexto del Router, por lo que useParams funciona.
@@ -79,6 +80,10 @@ const NegocioRoutes = ({ user }) => {
         <Route
           path="platillos"
           element={<PlatillosView businessId={businessId} />}
+        />
+        <Route
+          path="apariencia"
+          element={<PersonalizacionView businessId={businessId} />}
         />
         <Route
           path="configuracion"

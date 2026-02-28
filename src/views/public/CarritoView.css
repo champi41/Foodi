@@ -1,7 +1,6 @@
-@import url("https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;600&family=DM+Sans:wght@300;400;500;600&display=swap");
+/* Fuentes via variables CSS del tema — no @import aquí */
 
 /* ── SHEET ── */
-/* Mobile: pantalla completa. Desktop: panel lateral de max 480px */
 .cv-sheet {
   position: fixed;
   inset: 0;
@@ -26,7 +25,6 @@
   }
 }
 
-/* La pantalla de éxito ocupa el sheet completo — mismo tratamiento */
 .cv-overlay > .cv-success {
   width: 100%;
   max-width: 480px;
@@ -53,7 +51,7 @@
   background: none;
   border: none;
   color: var(--mp-muted, #666);
-  font-family: "DM Sans", sans-serif;
+  font-family: var(--mp-font-body, "DM Sans", sans-serif);
   font-size: 13px;
   font-weight: 500;
   cursor: pointer;
@@ -63,13 +61,10 @@
 .cv-back:hover {
   color: var(--mp-text, #f0ece4);
 }
-.cv-back__arrow {
-  font-size: 16px;
-}
 
 .cv-title {
   flex: 1;
-  font-family: "Playfair Display", Georgia, serif;
+  font-family: var(--mp-font-display, "Playfair Display", Georgia, serif);
   font-size: 20px;
   font-weight: 600;
   color: var(--mp-text, #f0ece4);
@@ -78,7 +73,7 @@
 }
 
 .cv-item-count {
-  font-family: "DM Sans", sans-serif;
+  font-family: var(--mp-font-body, "DM Sans", sans-serif);
   font-size: 13px;
   font-weight: 600;
   color: var(--mp-muted, #555);
@@ -120,7 +115,7 @@
 }
 
 .cv-item__qty {
-  font-family: "DM Sans", sans-serif;
+  font-family: var(--mp-font-body, "DM Sans", sans-serif);
   font-size: 14px;
   font-weight: 700;
   color: var(--mp-accent, #ffb347);
@@ -137,7 +132,7 @@
 }
 
 .cv-item__name {
-  font-family: "Playfair Display", Georgia, serif;
+  font-family: var(--mp-font-display, "Playfair Display", Georgia, serif);
   font-size: 14px;
   font-weight: 600;
   color: var(--mp-text, #f0ece4);
@@ -145,7 +140,7 @@
 }
 
 .cv-item__detail {
-  font-family: "DM Sans", sans-serif;
+  font-family: var(--mp-font-body, "DM Sans", sans-serif);
   font-size: 11px;
   color: var(--mp-muted, #555);
   font-weight: 400;
@@ -153,7 +148,7 @@
 }
 
 .cv-item__price {
-  font-family: "DM Sans", sans-serif;
+  font-family: var(--mp-font-body, "DM Sans", sans-serif);
   font-size: 14px;
   font-weight: 700;
   color: var(--mp-text, #f0ece4);
@@ -175,7 +170,7 @@
   border: 1px solid var(--mp-border, rgba(255, 255, 255, 0.08));
   border-radius: 8px;
   padding: 5px 12px;
-  font-family: "DM Sans", sans-serif;
+  font-family: var(--mp-font-body, "DM Sans", sans-serif);
   font-size: 11px;
   font-weight: 600;
   cursor: pointer;
@@ -189,7 +184,6 @@
   background: var(--mp-surface, rgba(255, 255, 255, 0.07));
   color: var(--mp-text, #f0ece4);
 }
-
 .cv-item__remove {
   color: var(--mp-muted, #555);
 }
@@ -206,7 +200,7 @@
 }
 
 .cv-section__title {
-  font-family: "DM Sans", sans-serif;
+  font-family: var(--mp-font-body, "DM Sans", sans-serif);
   font-size: 10px;
   font-weight: 800;
   text-transform: uppercase;
@@ -216,17 +210,23 @@
 }
 
 .cv-section__hint {
-  font-family: "DM Sans", sans-serif;
+  font-family: var(--mp-font-body, "DM Sans", sans-serif);
   font-size: 12px;
   color: var(--mp-muted, #444);
   font-weight: 400;
   margin: -6px 0 10px;
 }
 
+.cv-section-title-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
 .cv-error-text {
   font-size: 13px;
   color: #e05c5c;
-  font-family: "DM Sans", sans-serif;
+  font-family: var(--mp-font-body, "DM Sans", sans-serif);
 }
 
 /* ── ENTREGA TOGGLE ── */
@@ -241,28 +241,25 @@
   align-items: center;
   justify-content: center;
   gap: 8px;
-  padding: 12px;
+  padding: 10px;
   background: var(--mp-surface, rgba(255, 255, 255, 0.04));
   border: 1px solid var(--mp-border, rgba(255, 255, 255, 0.07));
   border-radius: 12px;
-  font-family: "DM Sans", sans-serif;
-  font-size: 13px;
+  font-family: var(--mp-font-body, "DM Sans", sans-serif);
+  font-size: 16px;
   font-weight: 600;
   color: var(--mp-muted, #666);
   cursor: pointer;
   transition: all 0.2s;
 }
-
 .cv-entrega-btn:hover {
   color: var(--mp-text, #aaa);
 }
-
 .cv-entrega-btn--active {
   background: var(--mp-accent-dim, rgba(255, 179, 71, 0.1));
   border-color: var(--mp-accent, rgba(255, 179, 71, 0.3));
   color: var(--mp-accent, #ffb347);
 }
-
 .cv-entrega-btn__icon {
   font-size: 16px;
 }
@@ -278,29 +275,26 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 12px 14px;
+  padding: 10px;
   background: var(--mp-surface, rgba(255, 255, 255, 0.03));
   border: 1px solid var(--mp-border, rgba(255, 255, 255, 0.06));
   border-radius: 12px;
-  font-family: "DM Sans", sans-serif;
-  font-size: 13px;
+  font-family: var(--mp-font-body, "DM Sans", sans-serif);
+  font-size: 16px;
   font-weight: 500;
   color: var(--mp-muted, #888);
   cursor: pointer;
   transition: all 0.15s;
   text-align: left;
 }
-
 .cv-zona-btn:hover {
   color: var(--mp-text, #bbb);
 }
-
 .cv-zona-btn--active {
   background: var(--mp-accent-dim, rgba(255, 179, 71, 0.08));
   border-color: var(--mp-accent, rgba(255, 179, 71, 0.25));
   color: var(--mp-text, #f0ece4);
 }
-
 .cv-zona-btn__precio {
   font-weight: 700;
   color: var(--mp-accent, #ffb347);
@@ -318,10 +312,10 @@
   background: var(--mp-surface, rgba(255, 255, 255, 0.04));
   border: 1px solid var(--mp-border, rgba(255, 255, 255, 0.08));
   border-radius: 12px;
-  padding: 13px 16px;
+  padding: 10px;
   color: var(--mp-text, #f0ece4);
-  font-family: "DM Sans", sans-serif;
-  font-size: 14px;
+  font-family: var(--mp-font-body, "DM Sans", sans-serif);
+  font-size: 16px;
   font-weight: 400;
   outline: none;
   box-sizing: border-box;
@@ -329,7 +323,6 @@
     border-color 0.2s,
     background 0.2s;
 }
-
 .cv-input::placeholder {
   color: var(--mp-muted, #3a3a38);
 }
@@ -348,46 +341,39 @@
 .cv-pago-opt {
   display: flex;
   align-items: center;
-  padding: 13px 14px;
+  padding: 10px;
   background: var(--mp-surface, rgba(255, 255, 255, 0.03));
   border: 1px solid var(--mp-border, rgba(255, 255, 255, 0.06));
   border-radius: 12px;
   cursor: pointer;
   transition: all 0.15s;
 }
-
 .cv-pago-opt:hover {
   background: var(--mp-surface, rgba(255, 255, 255, 0.06));
 }
-
 .cv-pago-opt--active {
   background: var(--mp-accent-dim, rgba(255, 179, 71, 0.08));
   border-color: var(--mp-accent, rgba(255, 179, 71, 0.25));
 }
-
 .cv-pago-opt__left {
   display: flex;
   align-items: center;
   gap: 10px;
   flex: 1;
 }
-
 .cv-pago-opt__emoji {
   font-size: 16px;
 }
-
 .cv-pago-opt__label {
-  font-family: "DM Sans", sans-serif;
-  font-size: 14px;
+  font-family: var(--mp-font-body, "DM Sans", sans-serif);
+  font-size: 16px;
   font-weight: 500;
   color: var(--mp-muted, #bbb);
 }
-
 .cv-pago-opt--active .cv-pago-opt__label {
   color: var(--mp-text, #f0ece4);
 }
 
-/* Radio custom */
 .cv-radio {
   width: 18px;
   height: 18px;
@@ -399,13 +385,11 @@
   flex-shrink: 0;
   transition: all 0.15s;
 }
-
 .cv-radio--on {
   border-color: var(--mp-accent, #ffb347);
   background: var(--mp-accent, #ffb347);
   box-shadow: 0 0 0 3px var(--mp-accent-dim, rgba(255, 179, 71, 0.15));
 }
-
 .cv-radio--on::after {
   content: "";
   width: 6px;
@@ -427,7 +411,7 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
-  font-family: "DM Sans", sans-serif;
+  font-family: var(--mp-font-body, "DM Sans", sans-serif);
   font-size: 13px;
   color: var(--mp-muted, #555);
   font-weight: 500;
@@ -443,7 +427,7 @@
 }
 
 .cv-summary__row--total span:last-child {
-  font-family: "Playfair Display", Georgia, serif;
+  font-family: var(--mp-font-display, "Playfair Display", Georgia, serif);
   font-size: 20px;
   font-weight: 600;
 }
@@ -454,20 +438,19 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 16px 20px;
+  padding: 15px;
   background: var(--mp-accent, #f0ece4);
   color: var(--mp-bg, #161614);
   border: none;
   border-radius: 16px;
-  font-family: "DM Sans", sans-serif;
-  font-size: 15px;
+  font-family: var(--mp-font-body, "DM Sans", sans-serif);
+  font-size: 16px;
   font-weight: 700;
   cursor: pointer;
   transition:
     opacity 0.2s,
     transform 0.1s;
 }
-
 .cv-confirm-btn:hover:not(:disabled) {
   opacity: 0.92;
 }
@@ -481,7 +464,7 @@
 }
 
 .cv-confirm-btn__price {
-  font-family: "Playfair Display", Georgia, serif;
+  font-family: var(--mp-font-display, "Playfair Display", Georgia, serif);
   font-size: 18px;
   font-weight: 600;
 }
@@ -517,7 +500,7 @@
 }
 
 .cv-success__title {
-  font-family: "Playfair Display", Georgia, serif;
+  font-family: var(--mp-font-display, "Playfair Display", Georgia, serif);
   font-size: 26px;
   font-weight: 600;
   color: var(--mp-text, #f0ece4);
@@ -525,13 +508,12 @@
 }
 
 .cv-success__sub {
-  font-family: "DM Sans", sans-serif;
+  font-family: var(--mp-font-body, "DM Sans", sans-serif);
   font-size: 14px;
   color: var(--mp-muted, #555);
   margin: 0 0 24px;
   line-height: 1.5;
 }
-
 .cv-success__sub strong {
   color: var(--mp-text, #f0ece4);
 }
@@ -548,7 +530,7 @@
 }
 
 .cv-bank-box__label {
-  font-family: "DM Sans", sans-serif;
+  font-family: var(--mp-font-body, "DM Sans", sans-serif);
   font-size: 10px;
   font-weight: 800;
   text-transform: uppercase;
@@ -558,7 +540,7 @@
 }
 
 .cv-bank-box__total {
-  font-family: "Playfair Display", Georgia, serif;
+  font-family: var(--mp-font-display, "Playfair Display", Georgia, serif);
   font-size: 28px;
   font-weight: 600;
   color: var(--mp-accent, #ffb347);
@@ -576,10 +558,9 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
-  font-family: "DM Sans", sans-serif;
+  font-family: var(--mp-font-body, "DM Sans", sans-serif);
   font-size: 13px;
 }
-
 .cv-bank-row span {
   color: var(--mp-muted, #555);
 }
@@ -589,7 +570,7 @@
 }
 
 .cv-bank-box__hint {
-  font-family: "DM Sans", sans-serif;
+  font-family: var(--mp-font-body, "DM Sans", sans-serif);
   font-size: 11px;
   color: var(--mp-muted, #444);
   margin: 0;
@@ -606,13 +587,12 @@
   color: #fff;
   border-radius: 16px;
   text-decoration: none;
-  font-family: "DM Sans", sans-serif;
+  font-family: var(--mp-font-body, "DM Sans", sans-serif);
   font-size: 15px;
   font-weight: 700;
   margin-bottom: 10px;
   transition: background 0.2s;
 }
-
 .cv-btn-whatsapp:hover {
   background: #20bd5a;
 }
@@ -627,13 +607,12 @@
   border: 1px solid var(--mp-border, rgba(255, 255, 255, 0.08));
   border-radius: 16px;
   color: var(--mp-muted, #555);
-  font-family: "DM Sans", sans-serif;
+  font-family: var(--mp-font-body, "DM Sans", sans-serif);
   font-size: 14px;
   font-weight: 600;
   cursor: pointer;
   transition: all 0.2s;
 }
-
 .cv-btn-back:hover {
   color: var(--mp-text, #888);
 }

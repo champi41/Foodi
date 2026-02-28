@@ -52,10 +52,11 @@ export const ProductModal = ({
 
     const existingIdx = current.findIndex((o) => o.nombre === opcion.nombre);
 
-    // modoIncluidas: tiene limite pero NO maxSeleccion → primeras N gratis, el resto cobra exceso
-    // modoPrecio:    tiene maxSeleccion pero NO limite  → cada opción cobra su extra siempre
-    // Sin restricción: sin límite ni máximo → todo gratis (extra 0 en opciones)
-    const modoIncluidas = !!grupo.limite && !grupo.maxSeleccion;
+    // modoIncluidas: tiene limite (incluyendo 0) pero NO maxSeleccion
+    //   limite=0 → todas cobran desde la primera (0 gratis)
+    //   limite=N → las primeras N gratis, el exceso cobra
+    // modoPrecio: tiene maxSeleccion pero NO limite → cada opción cobra su extra siempre
+    const modoIncluidas = grupo.limite != null && !grupo.maxSeleccion;
 
     if (delta > 0) {
       if (modoIncluidas && totalActual >= grupo.limite) {
@@ -96,11 +97,12 @@ export const ProductModal = ({
   const precioGrupos = grupos.reduce((acc, g, gi) => {
     if (g.tipo === "single") return acc + (selecciones[gi]?.extra || 0);
     // modoPrecio (maxSeleccion sin limite): cada opción elegida cobra su extra × cantidad
-    if (g.maxSeleccion && !g.limite) {
+    if (g.maxSeleccion && g.limite == null) {
       const sel = Array.isArray(selecciones[gi]) ? selecciones[gi] : [];
       return acc + sel.reduce((s, o) => s + (o.extra || 0) * o.cantidad, 0);
     }
-    // modoIncluidas (limite sin maxSeleccion): usa costoExcesos acumulado
+    // modoIncluidas (limite != null, sin maxSeleccion): usa costoExcesos acumulado
+    // limite=0 → todas cobran, costoExcesos se llena desde la primera opción
     return acc + (costoExcesos[gi] || 0);
   }, 0);
   const precioExtras = extras.reduce((acc, e) => acc + e.precio, 0);

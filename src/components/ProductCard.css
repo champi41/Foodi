@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;600&family=DM+Sans:wght@300;400;500;600&display=swap');
+/* Variables de fuente tomadas del tema activo — no hardcodear Playfair/DM Sans aquí */
 
 .pcard {
   background: var(--mp-card, #1e1e1c);
@@ -6,8 +6,10 @@
   overflow: hidden;
   display: flex;
   flex-direction: column;
-  border: 1px solid var(--mp-border, rgba(255,255,255,0.07));
-  transition: border-color 0.2s, box-shadow 0.2s;
+  border: 1px solid var(--mp-border, rgba(255, 255, 255, 0.07));
+  transition:
+    border-color 0.2s,
+    box-shadow 0.2s;
   cursor: default;
 }
 
@@ -22,8 +24,8 @@
 }
 
 .pcard--expanded {
-  border-color: var(--mp-accent-dim, rgba(255,200,100,0.25));
-  box-shadow: 0 0 0 1px var(--mp-accent-dim, rgba(255,200,100,0.1));
+  border-color: var(--mp-accent-dim, rgba(255, 200, 100, 0.25));
+  box-shadow: 0 0 0 1px var(--mp-accent-dim, rgba(255, 200, 100, 0.1));
 }
 
 .pcard--disabled {
@@ -90,7 +92,7 @@
 }
 
 .pcard__name {
-  font-family: 'Playfair Display', Georgia, serif;
+  font-family: var(--mp-font-display, "Playfair Display", Georgia, serif);
   font-size: 15px;
   font-weight: 600;
   color: var(--mp-text, #f0ece4);
@@ -104,7 +106,10 @@
   overflow: hidden;
   max-height: 0;
   opacity: 0;
-  transition: max-height 0.35s ease, opacity 0.3s ease, margin 0.3s ease;
+  transition:
+    max-height 0.35s ease,
+    opacity 0.3s ease,
+    margin 0.3s ease;
   margin-top: 0;
 }
 
@@ -115,18 +120,20 @@
 }
 
 .pcard__desc p {
-  font-family: 'DM Sans', sans-serif;
+  font-family: var(--mp-font-body, "DM Sans", sans-serif);
   font-size: 12px;
   color: var(--mp-muted, #888);
   line-height: 1.5;
   margin: 0;
   font-weight: 300;
 }
-.btnPrecio{
+
+.btnPrecio {
   display: flex;
   align-items: center;
   justify-content: space-between;
 }
+
 /* ── PRECIO ── */
 .pcard__right {
   display: flex;
@@ -137,7 +144,7 @@
 }
 
 .pcard__price {
-  font-family: 'DM Sans', sans-serif;
+  font-family: var(--mp-font-body, "DM Sans", sans-serif);
   font-size: 15px;
   font-weight: 600;
   color: var(--mp-text, #f0ece4);
@@ -161,9 +168,9 @@
 .pcard__btn {
   align-self: flex-end;
   background: none;
-  border: 1px solid var(--mp-border, rgba(255,255,255,0.12));
+  border: 1px solid var(--mp-border, rgba(255, 255, 255, 0.12));
   color: var(--mp-muted, #aaa);
-  font-family: 'DM Sans', sans-serif;
+  font-family: var(--mp-font-body, "DM Sans", sans-serif);
   font-size: 11px;
   font-weight: 500;
   letter-spacing: 0.3px;
@@ -180,9 +187,8 @@
   border-color: var(--mp-text, #f0ece4);
 }
 
-/* Botón con opciones usa el acento */
 .pcard__btn--options {
-  border-color: var(--mp-accent-dim, rgba(255,180,70,0.3));
+  border-color: var(--mp-accent-dim, rgba(255, 180, 70, 0.3));
   color: var(--mp-accent, #ffb347);
 }
 

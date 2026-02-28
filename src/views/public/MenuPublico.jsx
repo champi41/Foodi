@@ -81,6 +81,93 @@ const hexToRgba = (hex, alpha) => {
   return `rgba(${r},${g},${b},${alpha})`;
 };
 
+// ── Fuentes disponibles ───────────────────────────────────────
+export const FUENTES = [
+  {
+    id: "default",
+    nombre: "Sistema",
+    display: "DM Sans",
+    body: "DM Sans",
+    google: "DM+Sans:wght@300;400;500;600;700",
+    preview: "Aa",
+    desc: "Limpia y moderna",
+  },
+  {
+    id: "playfair",
+    nombre: "Elegante",
+    display: "Playfair Display",
+    body: "DM Sans",
+    google:
+      "Playfair+Display:ital,wght@0,400;0,600;1,400&family=DM+Sans:wght@300;400;500;600",
+    preview: "Aa",
+    desc: "Clásica y sofisticada",
+  },
+  {
+    id: "nunito",
+    nombre: "Amigable",
+    display: "Nunito",
+    body: "Nunito",
+    google: "Nunito:wght@300;400;600;700;800",
+    preview: "Aa",
+    desc: "Cálida y redondeada",
+  },
+  {
+    id: "syne",
+    nombre: "Urbana",
+    display: "Syne",
+    body: "Syne",
+    google: "Syne:wght@400;500;600;700;800",
+    preview: "Aa",
+    desc: "Llamativa y moderna",
+  },
+  {
+    id: "lora",
+    nombre: "Editorial",
+    display: "Lora",
+    body: "Lora",
+    google: "Lora:ital,wght@0,400;0,500;1,400",
+    preview: "Aa",
+    desc: "Cálida y literaria",
+  },
+  {
+    id: "fraunces",
+    nombre: "Artesanal",
+    display: "Fraunces",
+    body: "DM Sans",
+    google:
+      "Fraunces:ital,wght@0,400;0,700;1,400&family=DM+Sans:wght@300;400;500;600",
+    preview: "Aa",
+    desc: "Única y expresiva",
+  },
+];
+
+// Inyecta o actualiza el <link> de Google Fonts para la fuente activa
+const applyFont = (fuenteId) => {
+  const fuente = FUENTES.find((f) => f.id === fuenteId) || FUENTES[0];
+  const root = document.documentElement;
+
+  // CSS variables de fuente
+  root.style.setProperty(
+    "--mp-font-display",
+    `'${fuente.display}', Georgia, serif`,
+  );
+  root.style.setProperty(
+    "--mp-font-body",
+    `'${fuente.body}', system-ui, sans-serif`,
+  );
+
+  // Inyectar Google Fonts solo si no está ya cargada
+  const linkId = "mp-gfont";
+  let link = document.getElementById(linkId);
+  if (!link) {
+    link = document.createElement("link");
+    link.id = linkId;
+    link.rel = "stylesheet";
+    document.head.appendChild(link);
+  }
+  link.href = `https://fonts.googleapis.com/css2?family=${fuente.google}&display=swap`;
+};
+
 const aplicarTema = (tema) => {
   const root = document.documentElement;
   const acento = tema?.acento || "#ffb347";
@@ -221,6 +308,7 @@ export const MenuPublico = ({ slug }) => {
   useEffect(() => {
     if (!business) return;
     aplicarTema(business.tema);
+    applyFont(business.tema?.fuente || "default");
     setIsOpen(checkIsOpen(business)); // combina isOpen manual + horario
     document.title = business.nombre || "Cargando menú...";
     if (business.logo) {
@@ -236,6 +324,7 @@ export const MenuPublico = ({ slug }) => {
     return () => {
       clearInterval(iv);
       aplicarTema({ modo: "dark", acento: "#ffb347" });
+      applyFont("default");
     };
   }, [business]);
 
@@ -254,6 +343,7 @@ export const MenuPublico = ({ slug }) => {
       const bData = { id: snap.docs[0].id, ...snap.docs[0].data() };
       setBusiness(bData);
       aplicarTema(bData.tema);
+      applyFont(bData.tema?.fuente || "default");
       const [catSnap, prodSnap] = await Promise.all([
         getDocs(collection(db, `negocios/${bData.id}/categorias`)),
         getDocs(collection(db, `negocios/${bData.id}/productos`)),
@@ -327,12 +417,8 @@ export const MenuPublico = ({ slug }) => {
           <div className="titulo-ubi">
             <h1 className="mp-header__name">{business.nombre}</h1>
             <div className="ubi-status">
-              <p>
-                {" "}
-                <MapPin size={15} />
-                {business.ubicacion}
-              </p>
-              <p>-</p>
+              <MapPin size={15} />
+              <p>{business.ubicacion}</p>
               {business.horarios && (
                 <button
                   className="mp-horario-btn"

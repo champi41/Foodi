@@ -1,5 +1,11 @@
 import { NavLink, Outlet, useNavigate, useLocation } from "react-router-dom";
-import { ClipboardList, UtensilsCrossed, Settings, LogOut } from "lucide-react";
+import {
+  ClipboardList,
+  UtensilsCrossed,
+  Settings,
+  Palette,
+  LogOut,
+} from "lucide-react";
 import { auth, db } from "../api/firebase";
 import { signOut } from "firebase/auth";
 import {
@@ -16,7 +22,8 @@ import {
 import { useEffect, useRef, useState } from "react";
 import "./AdminLayout.css";
 
-const SOUND_URL = "/sounds/noti.mp3";
+const SOUND_URL =
+  "https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3";
 
 const getHoyInicio = () => {
   const d = new Date();
@@ -93,11 +100,25 @@ const AdminLayout = ({ slug, user, businessId }) => {
       const snap = await getDoc(doc(db, "negocios", businessId));
       if (snap.exists()) {
         const data = snap.data();
-        setNegocioNombre(data.nombre || slug);
-        setNegocioLogo(data.logo || "");
+        const nombre = data.nombre || slug;
+        const logo = data.logo || "";
+        setNegocioNombre(nombre);
+        setNegocioLogo(logo);
         setIsOpenManual(data.isOpen ?? false);
         setHorarios(data.horarios || null);
         setDatosBancarios(data.datosBancarios || null);
+
+        // Título y favicon de la pestaña del panel admin
+        document.title = `${nombre} · Admin`;
+        if (logo) {
+          let link = document.querySelector("link[rel~='icon']");
+          if (!link) {
+            link = document.createElement("link");
+            link.rel = "icon";
+            document.head.appendChild(link);
+          }
+          link.href = logo;
+        }
       }
     };
     fetchNegocio();
@@ -294,6 +315,16 @@ const AdminLayout = ({ slug, user, businessId }) => {
           </NavLink>
 
           <NavLink
+            to={`/${slug}/admin/apariencia`}
+            className={({ isActive }) =>
+              `nav-item ${isActive ? "nav-item-active" : ""}`
+            }
+          >
+            <Palette size={18} />
+            <span>Apariencia</span>
+          </NavLink>
+
+          <NavLink
             to={`/${slug}/admin/configuracion`}
             className={({ isActive }) =>
               `nav-item ${isActive ? "nav-item-active" : ""}`
@@ -326,7 +357,7 @@ const AdminLayout = ({ slug, user, businessId }) => {
         {newOrderAlert && (
           <div
             className="new-order-banner"
-            onClick={() => navigate("/admin/pedidos")}
+            onClick={() => navigate(`/${slug}/admin/pedidos`)}
           >
             <span className="banner-dot" />
             <span>
