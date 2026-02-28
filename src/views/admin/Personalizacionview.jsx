@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from "react";
 import { doc, getDoc, setDoc } from "firebase/firestore";
 import { db, auth } from "../../api/firebase";
 import { FUENTES } from "../public/MenuPublico";
-import "./PersonalizacionView.css";
+import "./Personalizacionview.css";
 
 const CLOUD_NAME = import.meta.env.VITE_CLOUDINARY_CLOUD_NAME;
 const UPLOAD_PRESET = import.meta.env.VITE_CLOUDINARY_UPLOAD_PRESET;
