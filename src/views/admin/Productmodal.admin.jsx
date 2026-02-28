@@ -1,6 +1,6 @@
 // ProductModal.jsx (admin) — modal de creación/edición de platillos
 import React, { useState } from "react";
-import { GrupoEditor } from "./GrupoEditor";
+import { GrupoEditor } from "./Grupoeditor";
 
 // ── Retrocompatibilidad: producto antiguo puede tener categoria_id (string) ──
 export const getCategoriasArray = (p) => {
