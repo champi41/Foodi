@@ -4,7 +4,7 @@
 //   2. Input numérico no desaparece al borrar: se guarda como string local
 //      y solo se convierte a número al confirmar (onBlur / onChange final)
 import React, { useState } from "react";
-import { TooltipAyuda } from "./TooltipAyuda";
+import { TooltipAyuda } from "./Tooltipayuda";
 
 export const GrupoEditor = ({ grupo, index, onChange, onRemove }) => {
   const [ayudaActiva, setAyudaActiva] = useState(null);
