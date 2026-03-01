@@ -17,7 +17,7 @@ import AdminLayout from "./layouts/AdminLayout";
 import { PedidosView } from "./views/admin/PedidosView";
 import { PlatillosView } from "./views/admin/PlatillosView";
 import { ConfigView } from "./views/admin/ConfigView";
-import { PersonalizacionView } from "./views/admin/PersonalizacionView";
+import { PersonalizacionView } from "./views/admin/Personalizacionview";
 import { PlanView } from "./views/admin/PlanView";
 import { SuperAdminView } from "./views/superadmin/SuperAdminView";
 
