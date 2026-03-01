@@ -5,6 +5,7 @@ import {
   Settings,
   Palette,
   LogOut,
+  CreditCard,
 } from "lucide-react";
 import { auth, db } from "../api/firebase";
 import { signOut } from "firebase/auth";
@@ -31,9 +32,9 @@ const getHoyInicio = () => {
   return Timestamp.fromDate(d);
 };
 
-// ── Helpers de horario (misma lógica que MenuPublico) ─────────
+// ── Helpers de horario ─────────────────────────────────────────
 const checkHorario = (horarios) => {
-  if (!horarios) return true; // sin horario configurado → siempre dentro de horario
+  if (!horarios) return true;
   const ahora = new Date();
   const dias = [
     "domingo",
@@ -58,11 +59,53 @@ const checkHorario = (horarios) => {
   return true;
 };
 
-// Estado real = isOpen manual AND dentro del horario
 const getEstadoReal = (isOpenManual, horarios) => {
   const dentroHorario = checkHorario(horarios);
   const operativo = isOpenManual && dentroHorario;
   return { operativo, dentroHorario };
+};
+
+// ── Helper suscripción ─────────────────────────────────────────
+const calcAvisoSuscripcion = (suscripcion) => {
+  if (!suscripcion?.fechaFin) return null;
+
+  const ahora = new Date();
+  const fechaFin =
+    suscripcion.fechaFin.toDate?.() ?? new Date(suscripcion.fechaFin);
+  const fechaGracia = suscripcion.fechaGracia?.toDate?.() ?? null;
+
+  if (fechaGracia && ahora > fechaGracia) {
+    return {
+      tipo: "vencido",
+      mensaje: "Tu plan ha vencido. El menú estará inaccesible pronto.",
+    };
+  }
+
+  if (ahora > fechaFin) {
+    const diasGracia = fechaGracia
+      ? Math.ceil((fechaGracia - ahora) / (1000 * 60 * 60 * 24))
+      : 0;
+    return {
+      tipo: "gracia",
+      mensaje: `Período de gracia: ${diasGracia} día${diasGracia !== 1 ? "s" : ""} para renovar antes de que el servicio se suspenda.`,
+    };
+  }
+
+  const diasRestantes = Math.ceil((fechaFin - ahora) / (1000 * 60 * 60 * 24));
+  if (diasRestantes <= 5) {
+    return {
+      tipo: "urgente",
+      mensaje: `Tu plan vence en ${diasRestantes} día${diasRestantes !== 1 ? "s" : ""}. Renueva para no interrumpir el servicio.`,
+    };
+  }
+  if (diasRestantes <= 10) {
+    return {
+      tipo: "aviso",
+      mensaje: `Tu plan vence en ${diasRestantes} días.`,
+    };
+  }
+
+  return null;
 };
 
 // ── Componente ────────────────────────────────────────────────
@@ -80,6 +123,8 @@ const AdminLayout = ({ slug, user, businessId }) => {
   const [pedidosPendientes, setPedidosPendientes] = useState(0);
   const [newOrderAlert, setNewOrderAlert] = useState(false);
   const [tickMinuto, setTickMinuto] = useState(0);
+  const [suscripcion, setSuscripcion] = useState(null);
+  const [bannerSusDismissed, setBannerSusDismissed] = useState(false);
 
   const audioRef = useRef(
     typeof Audio !== "undefined" ? new Audio(SOUND_URL) : null,
@@ -87,13 +132,13 @@ const AdminLayout = ({ slug, user, businessId }) => {
   const isFirstLoad = useRef(true);
   const alertTimeout = useRef(null);
 
-  // Tick cada minuto para re-evaluar si el horario cambió
+  // Tick cada minuto para re-evaluar horario
   useEffect(() => {
     const iv = setInterval(() => setTickMinuto((t) => t + 1), 60_000);
     return () => clearInterval(iv);
   }, []);
 
-  // Cargar negocio — nombre, logo, isOpen manual, horarios, datosBancarios
+  // Cargar datos del negocio
   useEffect(() => {
     if (!businessId) return;
     const fetchNegocio = async () => {
@@ -107,8 +152,8 @@ const AdminLayout = ({ slug, user, businessId }) => {
         setIsOpenManual(data.isOpen ?? false);
         setHorarios(data.horarios || null);
         setDatosBancarios(data.datosBancarios || null);
+        setSuscripcion(data.suscripcion || null);
 
-        // Título y favicon de la pestaña del panel admin
         document.title = `${nombre} · Admin`;
         if (logo) {
           let link = document.querySelector("link[rel~='icon']");
@@ -125,6 +170,8 @@ const AdminLayout = ({ slug, user, businessId }) => {
   }, [businessId]);
 
   // onSnapshot pedidos de hoy
+  // FIX: solo alerta si el pedido nuevo es "pendiente" Y fue creado hace menos
+  // de 30 segundos — evita que suene al cargar con pedidos finalizados del historial
   useEffect(() => {
     if (!businessId) return;
 
@@ -135,9 +182,24 @@ const AdminLayout = ({ slug, user, businessId }) => {
     );
 
     const unsubscribe = onSnapshot(q, (snapshot) => {
-      let hasNewOrder = false;
+      let hasNewPendingOrder = false;
+
       snapshot.docChanges().forEach((change) => {
-        if (change.type === "added" && !isFirstLoad.current) hasNewOrder = true;
+        if (change.type === "added" && !isFirstLoad.current) {
+          const data = change.doc.data();
+
+          // Condición 1: debe ser pendiente
+          const esPendiente = data.estado === "pendiente";
+
+          // Condición 2: debe haber sido creado hace menos de 30 segundos
+          // (filtra reconexiones, re-mounts y pedidos del historial)
+          const fechaPedido = data.fecha?.toDate?.() ?? null;
+          const esReciente = fechaPedido
+            ? Date.now() - fechaPedido.getTime() < 30_000
+            : false;
+
+          if (esPendiente && esReciente) hasNewPendingOrder = true;
+        }
       });
 
       const pedidosDeHoy = snapshot.docs.map((d) => ({
@@ -151,7 +213,7 @@ const AdminLayout = ({ slug, user, businessId }) => {
       ).length;
       setPedidosPendientes(pendientes);
 
-      if (hasNewOrder) {
+      if (hasNewPendingOrder) {
         if (audioRef.current) audioRef.current.play().catch(() => {});
         setNewOrderAlert(true);
         document.title = `🔴 ¡Nuevo pedido! — ${negocioNombre}`;
@@ -180,8 +242,6 @@ const AdminLayout = ({ slug, user, businessId }) => {
     }
   }, [location.pathname, negocioNombre]);
 
-  // Toggle manual — solo escribe isOpen en Firestore
-  // El estado real (operativo) se calcula combinando isOpen + horario localmente
   const handleToggleOpen = async () => {
     setTogglingOpen(true);
     const nuevoValor = !isOpenManual;
@@ -211,8 +271,6 @@ const AdminLayout = ({ slug, user, businessId }) => {
     }
   };
 
-  // Estado combinado — se recalcula en cada render y en cada tickMinuto
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   const { operativo, dentroHorario } = getEstadoReal(isOpenManual, horarios);
 
   const estadoTexto = () => {
@@ -222,7 +280,6 @@ const AdminLayout = ({ slug, user, businessId }) => {
     return "Cerrado";
   };
 
-  // Aviso cuando hay conflicto visible entre el toggle y el horario
   const estadoHint = () => {
     if (isOpenManual && !dentroHorario)
       return "Abierto en config, pero fuera del horario programado";
@@ -230,6 +287,13 @@ const AdminLayout = ({ slug, user, businessId }) => {
       return "Dentro del horario, pero cerrado manualmente";
     return null;
   };
+
+  const avisoSuscripcion = calcAvisoSuscripcion(suscripcion);
+
+  const WA_NUMERO = import.meta.env.VITE_ADMIN_WHATSAPP ?? "56900000000";
+  const waRenovarLink = `https://wa.me/${WA_NUMERO}?text=${encodeURIComponent(
+    `Hola, soy ${negocioNombre}. Quiero renovar mi plan.`,
+  )}`;
 
   return (
     <div className="admin-shell">
@@ -333,6 +397,21 @@ const AdminLayout = ({ slug, user, businessId }) => {
             <Settings size={18} />
             <span>Configuración</span>
           </NavLink>
+
+          <NavLink
+            to={`/${slug}/admin/plan`}
+            className={({ isActive }) =>
+              `nav-item ${isActive ? "nav-item-active" : ""}`
+            }
+          >
+            <CreditCard size={18} />
+            <span>Mi Plan</span>
+            {avisoSuscripcion && (
+              <span
+                className={`nav-dot-alerta nav-dot--${avisoSuscripcion.tipo}`}
+              />
+            )}
+          </NavLink>
         </nav>
 
         {/* ── FOOTER ── */}
@@ -354,6 +433,44 @@ const AdminLayout = ({ slug, user, businessId }) => {
       </aside>
 
       <main className="admin-main">
+        {/* ── Banner aviso suscripción ── */}
+        {avisoSuscripcion && !bannerSusDismissed && (
+          <div
+            className={`suscripcion-banner suscripcion-banner--${avisoSuscripcion.tipo}`}
+          >
+            <span className="suscripcion-banner__icon">
+              {avisoSuscripcion.tipo === "vencido"
+                ? "🔴"
+                : avisoSuscripcion.tipo === "gracia"
+                  ? "🟠"
+                  : "🟡"}
+            </span>
+            <span className="suscripcion-banner__msg">
+              {avisoSuscripcion.mensaje}
+            </span>
+            <a
+              href={waRenovarLink}
+              target="_blank"
+              rel="noreferrer"
+              className="suscripcion-banner__btn"
+            >
+              Renovar →
+            </a>
+            {/* No mostrar cierre en vencido/gracia — es crítico */}
+            {(avisoSuscripcion.tipo === "aviso" ||
+              avisoSuscripcion.tipo === "urgente") && (
+              <button
+                className="suscripcion-banner__close"
+                onClick={() => setBannerSusDismissed(true)}
+                title="Cerrar"
+              >
+                ✕
+              </button>
+            )}
+          </div>
+        )}
+
+        {/* ── Banner nuevo pedido ── */}
         {newOrderAlert && (
           <div
             className="new-order-banner"
@@ -374,6 +491,7 @@ const AdminLayout = ({ slug, user, businessId }) => {
             </button>
           </div>
         )}
+
         <div className="admin-content">
           <Outlet
             context={{

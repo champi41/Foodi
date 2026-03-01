@@ -1,0 +1,295 @@
+/* ══════════════════════════════════════
+   PlanView — vista de suscripción
+══════════════════════════════════════ */
+
+.pv-view {
+  max-width: 620px;
+  margin: 0 auto;
+  padding: 28px 20px 60px;
+  font-family: sans-serif;
+}
+
+.pv-loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 200px;
+  color: #94a3b8;
+  font-size: 14px;
+}
+
+/* ── Header ── */
+.pv-header { margin-bottom: 24px; }
+
+.pv-header h1 {
+  font-size: 22px;
+  font-weight: 900;
+  color: #0f172a;
+  text-transform: uppercase;
+  letter-spacing: -0.5px;
+  margin: 0 0 4px;
+}
+
+.pv-header__sub {
+  font-size: 13px;
+  color: #94a3b8;
+  margin: 0;
+}
+
+/* ── Cards ── */
+.pv-card {
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: 16px;
+  padding: 20px;
+  margin-bottom: 12px;
+}
+
+.pv-card__title {
+  font-size: 13px;
+  font-weight: 800;
+  color: #0f172a;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin: 0 0 16px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid #f1f5f9;
+}
+
+/* Card del plan con acento de color */
+.pv-card--plan {
+  border-color: var(--plan-color, #e2e8f0);
+  background: var(--plan-bg, #fff);
+  position: relative;
+  overflow: hidden;
+}
+
+.pv-card--plan::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 3px;
+  background: var(--plan-color, #e2e8f0);
+}
+
+/* Top del plan */
+.pv-plan-top {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-bottom: 20px;
+}
+
+.pv-plan-emoji {
+  font-size: 32px;
+  line-height: 1;
+  flex-shrink: 0;
+}
+
+.pv-plan-label {
+  font-size: 11px;
+  font-weight: 700;
+  color: #94a3b8;
+  text-transform: uppercase;
+  letter-spacing: 0.7px;
+  margin: 0 0 2px;
+}
+
+.pv-plan-nombre {
+  font-size: 24px;
+  font-weight: 900;
+  margin: 0;
+  letter-spacing: -0.5px;
+}
+
+/* Estado badge */
+.pv-estado-badge {
+  margin-left: auto;
+  font-size: 12px;
+  font-weight: 700;
+  padding: 5px 12px;
+  border-radius: 20px;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+.pv-estado--activo  { background: #dcfce7; color: #15803d; }
+.pv-estado--gracia  { background: #fff7ed; color: #c2410c; }
+.pv-estado--vencido { background: #fef2f2; color: #dc2626; }
+.pv-estado--sin_plan { background: #f1f5f9; color: #64748b; }
+
+/* Barra de días */
+.pv-barra-wrap { margin-bottom: 16px; }
+
+.pv-barra-track {
+  height: 6px;
+  background: rgba(0,0,0,0.06);
+  border-radius: 99px;
+  overflow: hidden;
+  margin-bottom: 6px;
+}
+
+.pv-barra-fill {
+  height: 100%;
+  border-radius: 99px;
+  transition: width 0.4s ease;
+}
+
+.pv-barra-label {
+  font-size: 12px;
+  font-weight: 700;
+}
+
+/* Fechas */
+.pv-fechas {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.pv-fecha-item {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.pv-fecha-label {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.7px;
+  color: #94a3b8;
+}
+
+.pv-fecha-val {
+  font-size: 13px;
+  font-weight: 600;
+  color: #334155;
+}
+
+.pv-fecha-sep {
+  font-size: 14px;
+  color: #cbd5e1;
+  margin-top: 12px;
+}
+
+/* Alertas */
+.pv-alerta {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  padding: 12px 14px;
+  border-radius: 10px;
+  margin-top: 16px;
+  font-size: 13px;
+  line-height: 1.5;
+}
+.pv-alerta--gracia  { background: #fff7ed; color: #9a3412; border: 1px solid #fed7aa; }
+.pv-alerta--vencido { background: #fef2f2; color: #991b1b; border: 1px solid #fecaca; }
+
+/* ── Último pago ── */
+.pv-pago-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 12px;
+}
+
+.pv-pago-item { display: flex; flex-direction: column; gap: 2px; }
+.pv-pago-label {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.7px;
+  color: #94a3b8;
+}
+.pv-pago-val { font-size: 14px; font-weight: 600; color: #0f172a; }
+.pv-pago-ref { font-family: monospace; font-size: 12px; color: #475569; }
+
+/* ── Acciones ── */
+.pv-acciones {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 12px;
+  flex-wrap: wrap;
+}
+
+.pv-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 20px;
+  border-radius: 12px;
+  font-size: 14px;
+  font-weight: 700;
+  text-decoration: none;
+  transition: all 0.15s;
+  flex: 1;
+  justify-content: center;
+}
+
+.pv-btn--renovar {
+  background: #0f172a;
+  color: #fff;
+}
+.pv-btn--renovar:hover { background: #1e293b; }
+
+.pv-btn--upgrade {
+  background: #fff;
+  color: #0f172a;
+  border: 1.5px solid #e2e8f0;
+}
+.pv-btn--upgrade:hover { border-color: #94a3b8; background: #f8fafc; }
+
+/* ── Planes disponibles ── */
+.pv-planes-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.pv-plan-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 14px 8px;
+  border: 1.5px solid #e2e8f0;
+  border-radius: 12px;
+  position: relative;
+  transition: border-color 0.15s;
+}
+
+.pv-plan-card--actual {
+  border-color: var(--c);
+  background: color-mix(in srgb, var(--c) 6%, white);
+}
+
+.pv-plan-card__emoji { font-size: 22px; }
+
+.pv-plan-card__nombre {
+  font-size: 12px;
+  font-weight: 700;
+  color: #334155;
+  font-family: sans-serif;
+}
+
+.pv-plan-card__badge {
+  position: absolute;
+  top: -8px;
+  font-size: 9px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  background: var(--c);
+  color: #fff;
+  padding: 2px 7px;
+  border-radius: 20px;
+}
+
+.pv-planes-hint {
+  font-size: 12px;
+  color: #94a3b8;
+  margin: 0;
+  text-align: center;
+}

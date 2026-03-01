@@ -17,7 +17,9 @@ import AdminLayout from "./layouts/AdminLayout";
 import { PedidosView } from "./views/admin/PedidosView";
 import { PlatillosView } from "./views/admin/PlatillosView";
 import { ConfigView } from "./views/admin/ConfigView";
-import { PersonalizacionView } from "./views/admin/Personalizacionview";
+import { PersonalizacionView } from "./views/admin/PersonalizacionView";
+import { PlanView } from "./views/admin/PlanView";
+import { SuperAdminView } from "./views/superadmin/SuperAdminView";
 
 // ── Wrapper que provee slug + businessId a las rutas anidadas ──
 // Se monta dentro del contexto del Router, por lo que useParams funciona.
@@ -89,6 +91,7 @@ const NegocioRoutes = ({ user }) => {
           path="configuracion"
           element={<ConfigView businessId={businessId} />}
         />
+        <Route path="plan" element={<PlanView businessId={businessId} />} />
       </Route>
 
       {/* Cualquier otra subruta del slug */}
@@ -120,6 +123,9 @@ function App() {
 
         {/* Todas las rutas de un negocio viven bajo /:slug */}
         <Route path=":slug/*" element={<NegocioRoutes user={user} />} />
+
+        {/* SuperAdmin — ruta protegida por UID en el componente */}
+        <Route path="superadmin" element={<SuperAdminView user={user} />} />
 
         {/* 404 global */}
         <Route path="*" element={<div>404 — Página no encontrada</div>} />
