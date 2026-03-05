@@ -3,7 +3,7 @@ import { signInWithEmailAndPassword } from "firebase/auth";
 import { auth } from "../../api/firebase";
 import "./Login.css"; // Ahora creamos este CSS
 
-export const Login = ({ slug }) => {
+export const Login = ({ slug, businessId }) => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");

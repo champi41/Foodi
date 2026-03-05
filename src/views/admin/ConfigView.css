@@ -504,7 +504,77 @@
   grid-template-columns: repeat(3, 1fr);
   gap: 8px;
 }
+@media (max-width: 768px) {
+  .config-view {
+    padding: 20px 14px 60px;
+  }
+
+  .config-view h1 {
+    font-size: 18px;
+    margin-bottom: 20px;
+  }
+
+  .config-section {
+    padding: 16px 14px;
+    margin-bottom: 12px;
+    border-radius: 14px;
+  }
+
+  .config-section h2 {
+    font-size: 13px;
+    margin-bottom: 12px;
+    padding-bottom: 10px;
+  }
+
+  .logo-drop {
+    padding: 20px 16px;
+  }
+
+  .horario-row {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+    padding: 10px 0;
+  }
+
+  .horario-dia {
+    min-width: 0;
+    width: 100%;
+  }
+
+  .horario-times {
+    width: 100%;
+    gap: 8px;
+  }
+
+  .horario-times input[type="time"] {
+    flex: 1;
+    min-width: 0;
+    max-width: 140px;
+  }
+
+  .zona-add-row {
+    flex-direction: column;
+  }
+
+  .zona-add-row input {
+    min-width: 0;
+  }
+
+  .btn-add-zona {
+    width: 100%;
+  }
+}
+
 @media (max-width: 480px) {
+  .config-view {
+    padding: 16px 12px 60px;
+  }
+
+  .config-section {
+    padding: 14px 12px;
+  }
+
   .fuente-grid {
     grid-template-columns: repeat(2, 1fr);
   }

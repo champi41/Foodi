@@ -61,7 +61,7 @@ const NegocioRoutes = ({ user }) => {
           isOwner ? (
             <Navigate replace to={`/${slug}/admin`} />
           ) : (
-            <Login slug={slug} />
+            <Login slug={slug} businessId={businessId} />
           )
         }
       />

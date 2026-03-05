@@ -4,3 +4,10 @@
   padding: 0;
   margin: 0;
 }
+
+/* Evitar zoom automático en iOS al enfocar inputs (Safari hace zoom si font-size < 16px) */
+input:not([type="checkbox"]):not([type="radio"]),
+textarea,
+select {
+  font-size: 16px !important;
+}

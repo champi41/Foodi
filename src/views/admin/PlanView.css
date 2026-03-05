@@ -293,3 +293,55 @@
   margin: 0;
   text-align: center;
 }
+
+/* ── RESPONSIVE ── */
+@media (max-width: 768px) {
+  .pv-view {
+    padding: 20px 14px 60px;
+  }
+
+  .pv-header h1 {
+    font-size: 18px;
+  }
+
+  .pv-plan-top {
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+
+  .pv-plan-nombre {
+    font-size: 20px;
+  }
+
+  .pv-estado-badge {
+    width: 100%;
+    text-align: center;
+    margin-left: 0;
+  }
+
+  .pv-pago-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .pv-planes-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .pv-acciones {
+    flex-direction: column;
+  }
+
+  .pv-btn {
+    width: 100%;
+  }
+}
+
+@media (max-width: 480px) {
+  .pv-view {
+    padding: 16px 12px 60px;
+  }
+
+  .pv-card {
+    padding: 16px 14px;
+  }
+}

@@ -559,7 +559,46 @@
 }
 
 /* ── RESPONSIVE ── */
+@media (max-width: 768px) {
+  .pedidos-view {
+    padding: 14px 12px 32px;
+  }
+
+  .pedidos-header {
+    margin-bottom: 14px;
+    gap: 10px;
+  }
+
+  .pedidos-title {
+    font-size: 18px;
+  }
+
+  .pedidos-filtros {
+    margin-bottom: 12px;
+    gap: 6px;
+  }
+
+  .pedidos-lista {
+    gap: 12px;
+  }
+
+  .pedido-card {
+    border-radius: 14px;
+  }
+
+  .pedido-topbar,
+  .pedido-cliente-col,
+  .pedido-items-col,
+  .pedido-footer {
+    padding: 12px 14px;
+  }
+}
+
 @media (max-width: 640px) {
+  .pedidos-view {
+    padding: 12px 10px 28px;
+  }
+
   .pedido-body {
     grid-template-columns: 1fr;
   }
