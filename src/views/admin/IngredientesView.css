@@ -1,0 +1,384 @@
+/* IngredientesView — estilos consistentes con panel admin */
+.ingredientes-view {
+  max-width: 800px;
+  margin: 0 auto;
+  padding: 24px 20px 60px;
+  font-family: sans-serif;
+}
+
+.iv-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 24px;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.iv-title {
+  font-size: 22px;
+  font-weight: 900;
+  color: #0f172a;
+  margin: 0;
+  text-transform: uppercase;
+  letter-spacing: -0.5px;
+}
+
+.iv-subtitle {
+  font-size: 12px;
+  color: #94a3b8;
+  margin: 3px 0 0;
+  font-weight: 600;
+}
+
+.iv-filter-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  margin-bottom: 20px;
+}
+
+.iv-btn-cat {
+  padding: 6px 14px;
+  border: 1.5px dashed #93c5fd;
+  border-radius: 20px;
+  background: #fff;
+  font-size: 12px;
+  font-weight: 700;
+  color: #3b82f6;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.iv-btn-cat:hover {
+  background: #eff6ff;
+  border-color: #3b82f6;
+}
+
+.iv-filter-btn-wrap {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 20px;
+  border: 1.5px solid #e2e8f0;
+  overflow: hidden;
+  transition: border-color 0.15s;
+}
+
+.iv-filter-cat {
+  padding: 6px 12px;
+  font-size: 12px;
+  font-weight: 700;
+  color: #64748b;
+}
+
+.iv-btn-delete-cat {
+  background: none;
+  border: none;
+  border-left: 1px solid #e2e8f0;
+  padding: 4px 8px;
+  font-size: 11px;
+  color: #94a3b8;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+
+.iv-btn-delete-cat:hover {
+  background: #fee2e2;
+  color: #ef4444;
+}
+
+.iv-hint {
+  font-size: 12px;
+  color: #94a3b8;
+  margin: 0;
+}
+
+.iv-loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 200px;
+  color: #94a3b8;
+  font-size: 14px;
+}
+
+.iv-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  padding: 60px 20px;
+  color: #94a3b8;
+  font-size: 14px;
+  text-align: center;
+}
+
+.iv-empty span {
+  font-size: 48px;
+}
+
+.iv-list {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.iv-section {
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: 14px;
+  padding: 16px;
+}
+
+.iv-section-title {
+  font-size: 13px;
+  font-weight: 800;
+  color: #475569;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin: 0 0 12px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid #f1f5f9;
+}
+
+.iv-cards {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.iv-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 12px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+}
+
+.iv-card-body {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+
+.iv-card-nombre {
+  font-size: 14px;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.iv-card-extra {
+  font-size: 13px;
+  font-weight: 700;
+  color: #3b82f6;
+  flex-shrink: 0;
+}
+
+.iv-card-actions {
+  display: flex;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.iv-btn-edit,
+.iv-btn-delete {
+  padding: 6px 12px;
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  border: none;
+  transition: all 0.15s;
+}
+
+.iv-btn-edit {
+  background: #f1f5f9;
+  color: #334155;
+}
+
+.iv-btn-edit:hover {
+  background: #e2e8f0;
+}
+
+.iv-btn-delete {
+  background: transparent;
+  color: #94a3b8;
+}
+
+.iv-btn-delete:hover {
+  background: #fee2e2;
+  color: #ef4444;
+}
+
+/* Modal */
+.iv-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+  padding: 20px;
+}
+
+.iv-modal {
+  background: #fff;
+  border-radius: 16px;
+  padding: 24px;
+  width: 100%;
+  max-width: 400px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.2);
+}
+
+.iv-modal-title {
+  font-size: 18px;
+  font-weight: 800;
+  color: #0f172a;
+  margin: 0 0 20px;
+}
+
+.iv-field {
+  margin-bottom: 14px;
+}
+
+.iv-field label {
+  display: block;
+  font-size: 12px;
+  font-weight: 700;
+  color: #475569;
+  margin-bottom: 5px;
+}
+
+.iv-field input,
+.iv-field select {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1.5px solid #e2e8f0;
+  border-radius: 10px;
+  font-size: 14px;
+  color: #0f172a;
+  background: #fafafa;
+  box-sizing: border-box;
+}
+
+.iv-field input:focus,
+.iv-field select:focus {
+  border-color: #3b82f6;
+  background: #fff;
+  outline: none;
+}
+
+.iv-precio-wrap {
+  display: flex;
+  align-items: center;
+  border: 1.5px solid #e2e8f0;
+  border-radius: 10px;
+  background: #fafafa;
+  overflow: hidden;
+}
+
+.iv-precio-wrap:focus-within {
+  border-color: #3b82f6;
+  background: #fff;
+}
+
+.iv-precio-prefix {
+  padding: 10px 12px;
+  font-size: 14px;
+  font-weight: 700;
+  color: #94a3b8;
+  border-right: 1px solid #e2e8f0;
+}
+
+.iv-precio-wrap input {
+  flex: 1;
+  border: none;
+  background: transparent;
+  padding: 10px 12px;
+}
+
+.iv-modal-btns {
+  display: flex;
+  gap: 10px;
+  margin-top: 20px;
+}
+
+.iv-modal-btns .btn-secondary,
+.iv-modal-btns .btn-primary {
+  flex: 1;
+}
+
+/* Modal de categoría (reutiliza estructura modal-box) */
+.ingredientes-view .modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 101;
+}
+
+.ingredientes-view .modal-box {
+  background: #fff;
+  border-radius: 16px;
+  padding: 24px;
+  width: 100%;
+  max-width: 400px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.2);
+}
+
+.ingredientes-view .modal-box h3 {
+  font-size: 18px;
+  font-weight: 800;
+  color: #0f172a;
+  margin: 0 0 16px;
+}
+
+.ingredientes-view .modal-box input {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1.5px solid #e2e8f0;
+  border-radius: 10px;
+  font-size: 14px;
+  margin-bottom: 14px;
+  box-sizing: border-box;
+}
+
+.ingredientes-view .modal-box .modal-btns {
+  display: flex;
+  gap: 10px;
+}
+
+.ingredientes-view .modal-box .modal-btns .btn-primary,
+.ingredientes-view .modal-box .modal-btns .btn-secondary {
+  flex: 1;
+}
+
+@media (max-width: 768px) {
+  .ingredientes-view {
+    padding: 20px 14px 60px;
+  }
+
+  .iv-title {
+    font-size: 18px;
+  }
+
+  .iv-card {
+    flex-wrap: wrap;
+  }
+
+  .iv-card-actions {
+    width: 100%;
+    justify-content: flex-end;
+  }
+}

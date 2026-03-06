@@ -2,7 +2,10 @@ import React, { useState, useMemo, useCallback } from "react";
 import { useOutletContext } from "react-router-dom";
 import {
   doc,
+  getDoc,
+  setDoc,
   updateDoc,
+  increment,
   collection,
   query,
   orderBy,
@@ -13,6 +16,7 @@ import {
   Timestamp,
 } from "firebase/firestore";
 import { db } from "../../api/firebase";
+import { TicketImpresion } from "../../components/admin/TicketImpresion";
 import "./PedidosView.css";
 
 const ESTADOS = ["todos", "pendiente", "preparando", "enviado"];
@@ -55,6 +59,80 @@ const armarMensaje = (pedido, datosBancarios) => {
   }
 };
 
+const actualizarResumen = async (pedido, tenantId) => {
+  try {
+    const fecha = pedido.fecha?.toDate
+      ? pedido.fecha.toDate()
+      : new Date(pedido.fecha || Date.now());
+    const mes = `${fecha.getFullYear()}-${String(fecha.getMonth() + 1).padStart(2, "0")}`;
+    const dia = String(fecha.getDate()).padStart(2, "0");
+
+    const resumenRef = doc(db, `negocios/${tenantId}/resumenes/${mes}`);
+    const metodoPago = pedido.metodoPago ?? "efectivo";
+    const tipoEntrega = pedido.tipoEntrega ?? "retiro";
+    const total = pedido.total ?? 0;
+    const costoEnvio = pedido.costoEnvio ?? 0;
+
+    // Totales y fecha: setDoc con merge (crea el doc si no existe)
+    await setDoc(
+      resumenRef,
+      {
+        totalPedidos: increment(1),
+        totalIngresos: increment(total),
+        totalEnvio: increment(costoEnvio),
+        ultimaActualizacion: new Date(),
+      },
+      { merge: true },
+    );
+
+    // Campos anidados: updateDoc con notación punto para que Firestore cree porMetodoPago.xxx, pedidosPorDia.xxx, etc.
+    await updateDoc(resumenRef, {
+      [`porMetodoPago.${metodoPago}`]: increment(total),
+      [`porTipoEntrega.${tipoEntrega}`]: increment(1),
+      [`pedidosPorDia.${dia}`]: increment(1),
+      [`ingresosPorDia.${dia}`]: increment(total),
+    });
+
+    const resumenSnap = await getDoc(resumenRef);
+    const resumenData = resumenSnap.data() || {};
+    const productosActuales = resumenData.productosMasVendidos || [];
+    const productosActualizados = [...productosActuales];
+
+    for (const item of pedido.items ?? []) {
+      const cantidad = item.cantidad || 1;
+      const ingresos = item.precioFinal || 0;
+      const idx = productosActualizados.findIndex(
+        (p) => p.nombre === item.nombre,
+      );
+      if (idx >= 0) {
+        productosActualizados[idx] = {
+          ...productosActualizados[idx],
+          cantidad: (productosActualizados[idx].cantidad || 0) + cantidad,
+          ingresos: (productosActualizados[idx].ingresos || 0) + ingresos,
+        };
+      } else {
+        productosActualizados.push({
+          nombre: item.nombre,
+          cantidad,
+          ingresos,
+        });
+      }
+    }
+
+    const top20 = productosActualizados
+      .sort((a, b) => b.cantidad - a.cantidad)
+      .slice(0, 20);
+
+    await setDoc(
+      resumenRef,
+      { productosMasVendidos: top20 },
+      { merge: true },
+    );
+  } catch (e) {
+    console.error("Error actualizando resumen:", e);
+  }
+};
+
 const abrirWhatsApp = (pedido, datosBancarios) => {
   const rawPhone = pedido.cliente?.phone || "";
   let numero = rawPhone.replace(/\D/g, "");
@@ -68,7 +146,7 @@ const abrirWhatsApp = (pedido, datosBancarios) => {
 };
 
 export const PedidosView = () => {
-  const { businessId, pedidosHoy, datosBancarios } = useOutletContext();
+  const { businessId, pedidosHoy, datosBancarios, negocio } = useOutletContext();
 
   const [filtroEstado, setFiltroEstado] = useState("todos");
   const [mostrandoHistorial, setMostrandoHistorial] = useState(false);
@@ -77,6 +155,8 @@ export const PedidosView = () => {
   const [ultimoDoc, setUltimoDoc] = useState(null);
   const [hayMas, setHayMas] = useState(true);
   const [error, setError] = useState(null);
+  const [pedidoImprimir, setPedidoImprimir] = useState(null);
+  const [confirmandoPagoId, setConfirmandoPagoId] = useState(null);
 
   const pedidosActivos = useMemo(() => {
     if (!pedidosHoy) return [];
@@ -137,11 +217,15 @@ export const PedidosView = () => {
     setFiltroEstado("todos");
   };
 
-  const handleCambiarEstado = async (pedidoId, nuevoEstado) => {
+  const handleCambiarEstado = async (pedido, nuevoEstado) => {
     try {
-      await updateDoc(doc(db, `negocios/${businessId}/pedidos`, pedidoId), {
-        estado: nuevoEstado,
-      });
+      await updateDoc(
+        doc(db, `negocios/${businessId}/pedidos`, pedido.id),
+        { estado: nuevoEstado },
+      );
+      if (nuevoEstado === "entregado") {
+        await actualizarResumen(pedido, businessId);
+      }
     } catch (err) {
       console.error("Error actualizando estado:", err);
       setError("Error al actualizar el pedido");
@@ -149,12 +233,15 @@ export const PedidosView = () => {
   };
 
   const handleConfirmarPago = async (pedidoId) => {
+    setConfirmandoPagoId(pedidoId);
     try {
       await updateDoc(doc(db, `negocios/${businessId}/pedidos`, pedidoId), {
         pagoConfirmado: true,
       });
     } catch (err) {
       console.error("Error confirmando pago:", err);
+    } finally {
+      setConfirmandoPagoId(null);
     }
   };
 
@@ -247,15 +334,23 @@ export const PedidosView = () => {
           <span className="pedido-fecha">{formatFecha(pedido.fecha)}</span>
         </div>
         <div className="pedido-topbar-right">
-          {/* Badge pago pendiente */}
-          {esTransferenciaPendiente(pedido) && (
-            <span className="badge-transferencia-pendiente">
-              💸 Pago pendiente
-            </span>
-          )}
-          {/* Badge pago confirmado */}
-          {pedido.metodoPago === "transferencia" && pedido.pagoConfirmado && (
-            <span className="badge-transferencia-ok">✓ Pago ok</span>
+          {/* Transferencia: indicador es el botón (pendiente → confirmar; confirmado → deshabilitado) */}
+          {pedido.metodoPago === "transferencia" && (
+            pedido.pagoConfirmado ? (
+              <span className="badge-transferencia-ok badge-transferencia-ok--disabled">
+                Pago confirmado
+              </span>
+            ) : (
+              <button
+                type="button"
+                className="badge-transferencia-pendiente badge-transferencia-pendiente--btn"
+                title="Confirmar Pago"
+                disabled={confirmandoPagoId === pedido.id}
+                onClick={() => handleConfirmarPago(pedido.id)}
+              >
+                {confirmandoPagoId === pedido.id ? "Confirmando..." : "💸 Pago pendiente"}
+              </button>
+            )
           )}
           <span className={getBadgeClass(pedido.estado)}>
             {pedido.estado || "Pendiente"}
@@ -282,12 +377,24 @@ export const PedidosView = () => {
                 {pedido.tipoEntrega === "delivery" ? (
                   <>
                     {pedido.cliente?.address}
-                    {pedido.cliente?.zona && (
+                    {pedido.cliente?.deliveryLabel != null ||
+                    pedido.cliente?.deliveryKm != null ? (
+                      <span className="entrega-zona">
+                        {" "}
+                        ·{" "}
+                        {pedido.cliente.deliveryKm != null
+                          ? `${Number(pedido.cliente.deliveryKm).toFixed(1)} km`
+                          : ""}
+                        {pedido.cliente.deliveryLabel
+                          ? ` — ${pedido.cliente.deliveryLabel}`
+                          : ""}
+                      </span>
+                    ) : pedido.cliente?.zona ? (
                       <span className="entrega-zona">
                         {" "}
                         · {pedido.cliente.zona}
                       </span>
-                    )}
+                    ) : null}
                   </>
                 ) : (
                   "en Local"
@@ -348,20 +455,6 @@ export const PedidosView = () => {
         </div>
 
         <div className="pedido-acciones">
-          {/* Confirmar pago — solo transferencias no confirmadas y no canceladas */}
-          {pedido.metodoPago === "transferencia" &&
-            !pedido.pagoConfirmado &&
-            !esHistorial &&
-            pedido.estado !== "cancelado" && (
-              <button
-                className="btn-accion btn-confirmar-pago"
-                onClick={() => handleConfirmarPago(pedido.id)}
-                title="Marcar transferencia como recibida"
-              >
-                💸 Confirmar pago
-              </button>
-            )}
-
           {/* Avisar al cliente */}
           {pedido.cliente?.phone && (
             <button
@@ -372,6 +465,13 @@ export const PedidosView = () => {
               📲 Avisar
             </button>
           )}
+          <button
+            className="btn-accion"
+            onClick={() => setPedidoImprimir(pedido)}
+            title="Imprimir ticket térmico"
+          >
+            🖨️ Ticket
+          </button>
 
           {/* Acciones de estado */}
           {!esHistorial && (
@@ -380,13 +480,17 @@ export const PedidosView = () => {
                 <>
                   <button
                     className="btn-accion btn-aceptar"
-                    onClick={() => handleCambiarEstado(pedido.id, "preparando")}
+                    onClick={() => handleCambiarEstado(pedido, "preparando")}
                   >
                     ✅ Aceptar
                   </button>
                   <button
                     className="btn-accion btn-rechazar"
-                    onClick={() => handleCambiarEstado(pedido.id, "cancelado")}
+                    onClick={() => {
+                      if (window.confirm("¿Cancelar este pedido? Esta acción no se puede deshacer.")) {
+                        handleCambiarEstado(pedido, "cancelado");
+                      }
+                    }}
                   >
                     Rechazar
                   </button>
@@ -397,7 +501,7 @@ export const PedidosView = () => {
                   className="btn-accion btn-enviar"
                   onClick={() =>
                     handleCambiarEstado(
-                      pedido.id,
+                      pedido,
                       pedido.tipoEntrega === "delivery"
                         ? "enviado"
                         : "entregado",
@@ -412,7 +516,7 @@ export const PedidosView = () => {
               {pedido.estado === "enviado" && (
                 <button
                   className="btn-accion btn-entregar"
-                  onClick={() => handleCambiarEstado(pedido.id, "entregado")}
+                  onClick={() => handleCambiarEstado(pedido, "entregado")}
                 >
                   📦 Confirmar
                 </button>
@@ -485,6 +589,13 @@ export const PedidosView = () => {
             <p>No hay pedidos finalizados aún</p>
           </div>
         )}
+        {pedidoImprimir && negocio && (
+          <TicketImpresion
+            pedido={pedidoImprimir}
+            negocio={negocio}
+            onClose={() => setPedidoImprimir(null)}
+          />
+        )}
       </div>
     );
   }
@@ -544,6 +655,13 @@ export const PedidosView = () => {
               : `No hay pedidos en estado "${filtroEstado}"`}
           </p>
         </div>
+      )}
+      {pedidoImprimir && negocio && (
+        <TicketImpresion
+          pedido={pedidoImprimir}
+          negocio={negocio}
+          onClose={() => setPedidoImprimir(null)}
+        />
       )}
     </div>
   );

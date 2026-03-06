@@ -474,12 +474,112 @@
   margin-bottom: 6px; padding: 0 2px;
 }
 
+.grupo-opciones--con-incluido .opciones-header-row {
+  grid-template-columns: 1fr 100px 70px 24px;
+}
+
 .opcion-row {
   display: grid;
   grid-template-columns: 1fr 140px auto;
   gap: 8px;
   align-items: center;
   margin-bottom: 6px;
+}
+
+.grupo-opciones--con-incluido .opcion-row {
+  grid-template-columns: 1fr 100px 70px 24px;
+}
+
+.opcion-incluido-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #64748b;
+  cursor: pointer;
+}
+
+.opcion-incluido-label input[type="checkbox"] {
+  accent-color: #3b82f6;
+  cursor: pointer;
+}
+
+/* Catálogo de ingredientes en grupo */
+.grupo-catalogo {
+  padding: 10px 12px;
+  border-top: 1px solid #e2e8f0;
+  background: #fafafa;
+}
+
+.grupo-catalogo-title {
+  display: block;
+  font-size: 11px;
+  font-weight: 800;
+  color: #64748b;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 8px;
+}
+
+.grupo-catalogo-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.grupo-catalogo-cat {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.grupo-catalogo-cat-name {
+  font-size: 11px;
+  font-weight: 700;
+  color: #94a3b8;
+}
+
+.grupo-catalogo-checkboxes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.grupo-catalogo-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 10px;
+  border: 1.5px solid #e2e8f0;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #64748b;
+  background: #fff;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.grupo-catalogo-chip:hover {
+  border-color: #94a3b8;
+  color: #334155;
+}
+
+.grupo-catalogo-chip--on {
+  border-color: #3b82f6;
+  background: #eff6ff;
+  color: #1d4ed8;
+}
+
+.grupo-catalogo-chip input {
+  display: none;
+}
+
+.grupo-catalogo-extra {
+  font-size: 10px;
+  font-weight: 700;
+  color: #3b82f6;
 }
 
 .opcion-precio-wrap {
@@ -489,6 +589,22 @@
 }
 .opcion-precio-wrap:focus-within    { border-color: #3b82f6; background: #fff; }
 .opcion-precio-wrap input           { border: none !important; background: transparent !important; padding: 7px 8px !important; width: 80px; }
+
+.opcion-precio-wrap--disabled {
+  display: flex;
+  align-items: center;
+  padding: 0 10px;
+  background: #f1f5f9;
+  border: 1.5px solid #e2e8f0;
+  border-radius: 8px;
+  min-height: 36px;
+}
+
+.opcion-precio-incluido {
+  font-size: 13px;
+  font-weight: 700;
+  color: #94a3b8;
+}
 
 .btn-remove-opcion        { background: none; border: none; color: #cbd5e1; font-size: 12px; cursor: pointer; padding: 4px; border-radius: 4px; width: 24px; text-align: center; }
 .btn-remove-opcion:hover  { background: #fee2e2; color: #ef4444; }
@@ -562,6 +678,57 @@
 /* ── Personalizable ── */
 .personalizable-fields { margin-top: 14px; display: flex; flex-direction: column; gap: 14px; }
 
+.personalizable-catalogo {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.personalizable-cat {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.personalizable-cat-name {
+  font-size: 11px;
+  font-weight: 700;
+  color: #94a3b8;
+}
+
+.personalizable-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.personalizable-extras-list {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid #f1f5f9;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.personalizable-extras-label {
+  font-size: 11px;
+  font-weight: 700;
+  color: #64748b;
+  margin-bottom: 4px;
+}
+
+.opcion-row--compact {
+  grid-template-columns: 1fr 100px;
+  margin-bottom: 4px;
+}
+
+.opcion-nombre-fijo {
+  font-size: 13px;
+  font-weight: 600;
+  color: #334155;
+}
+
 /* ── Modal botones ── */
 .modal-btns {
   display: flex; gap: 8px; justify-content: flex-end;
@@ -621,6 +788,8 @@
   .field-row              { grid-template-columns: 1fr; }
   .pv-grid                { grid-template-columns: 1fr 1fr; }
   .opciones-header-row    { grid-template-columns: 1fr 120px 24px; }
+  .grupo-opciones--con-incluido .opciones-header-row { grid-template-columns: 1fr 80px 60px 24px; }
+  .grupo-opciones--con-incluido .opcion-row          { grid-template-columns: 1fr 80px 60px 24px; }
   .config-inline-input    { padding-left: 0; }
 }
 

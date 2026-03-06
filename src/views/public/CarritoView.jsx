@@ -1,6 +1,11 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { addDoc, collection, serverTimestamp } from "firebase/firestore";
 import { db } from "../../api/firebase";
+import {
+  geocodificar,
+  distanciaLineaRectaKm,
+  encontrarRango,
+} from "../../utils/delivery";
 import "./CarritoView.css";
 import { ChevronLeft } from "lucide-react";
 
@@ -35,19 +40,21 @@ export const CarritoView = ({
 }) => {
   const config = business || {};
   const tiposEntrega = config.tiposEntrega || { retiro: true, delivery: false };
-  const zonasDelivery = config.zonasDelivery || [];
+  const deliveryConfig = config.deliveryConfig || null;
 
   const defaultEntrega = tiposEntrega.retiro ? "retiro" : "delivery";
 
   // Precarga con datos guardados si existen
   const [customer, setCustomer] = useState(loadCustomer);
   const [deliveryType, setDeliveryType] = useState(defaultEntrega);
-  const [zonaSeleccionada, setZona] = useState(null);
   const [paymentMethod, setPayment] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [orderId, setOrderId] = useState(null);
   const [savedTotal, setSavedTotal] = useState(0);
   const [savedPayment, setSavedPayment] = useState("");
+  const [deliveryStatus, setDeliveryStatus] = useState("idle");
+  const [deliveryKm, setDeliveryKm] = useState(null);
+  const [deliveryRango, setDeliveryRango] = useState(null);
 
   // ── Cierre con animación ──
   const [closing, setClosing] = useState(false);
@@ -65,14 +72,63 @@ export const CarritoView = ({
 
   // Actualiza el estado y persiste en localStorage al mismo tiempo
   const handleCustomerChange = (field, value) => {
-    const updated = { ...customer, [field]: value };  
+    const updated = { ...customer, [field]: value };
     setCustomer(updated);
     saveCustomer(updated);
   };
 
+  // Resetear cálculo de envío si el cliente cambia la dirección después de calcular
+  useEffect(() => {
+    if (deliveryType !== "delivery" || !deliveryConfig) return;
+    if (
+      deliveryStatus !== "idle" &&
+      deliveryStatus !== "loading" &&
+      customer.address
+    ) {
+      setDeliveryStatus("idle");
+      setDeliveryKm(null);
+      setDeliveryRango(null);
+    }
+  }, [customer.address]);
+
+  const handleCalcularCostoEnvio = async () => {
+    if (!deliveryConfig?.coordenadasLocal || !customer.address?.trim()) return;
+    setDeliveryStatus("loading");
+    setDeliveryKm(null);
+    setDeliveryRango(null);
+    try {
+      const coordsCliente = await geocodificar(customer.address.trim());
+      if (!coordsCliente) {
+        setDeliveryStatus("error");
+        return;
+      }
+      // Distancia en línea recta para que coincida con los círculos del mapa (Haversine)
+      const km = distanciaLineaRectaKm(
+        deliveryConfig.coordenadasLocal,
+        coordsCliente,
+      );
+      const rango = encontrarRango(
+        km,
+        deliveryConfig.rangos || [],
+        deliveryConfig.kmMaximo ?? 0,
+      );
+      if (rango) {
+        setDeliveryStatus("success");
+        setDeliveryKm(km);
+        setDeliveryRango(rango);
+      } else {
+        setDeliveryStatus("out_of_range");
+        setDeliveryKm(km);
+        setDeliveryRango(null);
+      }
+    } catch {
+      setDeliveryStatus("error");
+    }
+  };
+
   const deliveryCost =
-    deliveryType === "delivery" && zonaSeleccionada
-      ? zonaSeleccionada.precio
+    deliveryType === "delivery" && deliveryConfig && deliveryRango
+      ? deliveryRango.precio
       : 0;
   const subtotal = cart.reduce((acc, item) => acc + item.precioFinal, 0);
   const total = subtotal + deliveryCost;
@@ -118,19 +174,17 @@ export const CarritoView = ({
   const handleChangeEntrega = (tipo) => {
     setDeliveryType(tipo);
     setPayment("");
-    setZona(null);
+    setDeliveryStatus("idle");
+    setDeliveryKm(null);
+    setDeliveryRango(null);
   };
 
   const handleSubmitOrder = async (e) => {
     e.preventDefault();
     if (!paymentMethod) return alert("Selecciona un método de pago");
     if (cart.length === 0) return alert("Tu carrito está vacío");
-    if (
-      deliveryType === "delivery" &&
-      zonasDelivery.length > 0 &&
-      !zonaSeleccionada
-    )
-      return alert("Selecciona tu zona de envío");
+    if (deliveryType === "delivery" && deliveryConfig && deliveryStatus !== "success")
+      return alert("Por favor calcula el costo de envío antes de confirmar");
 
     setIsSubmitting(true);
 
@@ -147,7 +201,14 @@ export const CarritoView = ({
     });
 
     const newOrder = {
-      cliente: { ...customer, zona: zonaSeleccionada?.nombre || null },
+      cliente: {
+        ...customer,
+        deliveryKm:
+          deliveryConfig && deliveryKm != null
+            ? Math.round(deliveryKm * 10) / 10
+            : null,
+        deliveryLabel: deliveryRango?.label ?? null,
+      },
       tipoEntrega: deliveryType,
       metodoPago: paymentMethod,
       items: itemsLimpios,
@@ -177,7 +238,7 @@ export const CarritoView = ({
 
   // ── PANTALLA DE ÉXITO ──
   if (orderId) {
-    const bancarios = config.datosBancarios || {};
+    const bancarios = config.datosTransferencia || config.datosBancarios || {};
     const whatsappMsg = `Hola! Hice el pedido *#${orderId.slice(-4)}*. ¿Me lo confirman?`;
     const whatsappLink = `https://wa.me/${config.whatsapp?.replace("+", "")}?text=${encodeURIComponent(whatsappMsg)}`;
 
@@ -346,31 +407,6 @@ export const CarritoView = ({
             </div>
           </section>
 
-          {/* ── 3. ZONAS ── */}
-          {deliveryType === "delivery" && zonasDelivery.length > 0 && (
-            <section className="cv-section">
-              <h3 className="cv-section__title">Zona de envío</h3>
-              <p className="cv-section__hint">
-                Selecciona el sector más cercano a tu dirección
-              </p>
-              <div className="cv-zonas">
-                {zonasDelivery.map((z, idx) => (
-                  <button
-                    key={idx}
-                    type="button"
-                    className={`cv-zona-btn ${zonaSeleccionada?.nombre === z.nombre ? "cv-zona-btn--active" : ""}`}
-                    onClick={() => setZona(z)}
-                  >
-                    <span>{z.nombre}</span>
-                    <span className="cv-zona-btn__precio">
-                      ${z.precio.toLocaleString("es-CL")}
-                    </span>
-                  </button>
-                ))}
-              </div>
-            </section>
-          )}
-
           <form onSubmit={handleSubmitOrder}>
             {/* ── 4. DATOS CLIENTE ── */}
             <section className="cv-section">
@@ -396,15 +432,62 @@ export const CarritoView = ({
                   }
                 />
                 {deliveryType === "delivery" && (
-                  <input
-                    className="cv-input"
-                    required
-                    placeholder="Dirección de envío (calle, número…)"
-                    value={customer.address}
-                    onChange={(e) =>
-                      handleCustomerChange("address", e.target.value)
-                    }
-                  />
+                  <>
+                    <input
+                      className="cv-input"
+                      required
+                      placeholder="Dirección de envío (calle, número…)"
+                      value={customer.address}
+                      onChange={(e) =>
+                        handleCustomerChange("address", e.target.value)
+                      }
+                    />
+                    {deliveryConfig && (
+                      <div className="cv-delivery-calc">
+                        <button
+                          type="button"
+                          className="cv-delivery-calc-btn"
+                          onClick={handleCalcularCostoEnvio}
+                          disabled={
+                            !customer.address?.trim() ||
+                            deliveryStatus !== "idle"
+                          }
+                        >
+                          {deliveryStatus === "loading"
+                            ? "Calculando distancia…"
+                            : "Calcular costo de envío"}
+                        </button>
+                        {deliveryStatus === "success" && deliveryRango && (
+                          <p className="cv-delivery-feedback cv-delivery-feedback--success">
+                            ✓ {deliveryKm != null
+                              ? `${(Math.round(deliveryKm * 10) / 10).toFixed(1)} km`
+                              : ""} — {deliveryRango.label} — $
+                            {deliveryRango.precio.toLocaleString("es-CL")}
+                          </p>
+                        )}
+                        {deliveryStatus === "out_of_range" && (
+                          <p className="cv-delivery-feedback cv-delivery-feedback--out">
+                            {deliveryKm != null && (
+                              <>Tu dirección está a {Number(deliveryKm).toFixed(1)} km. </>
+                            )}
+                            {deliveryKm != null &&
+                            deliveryConfig.kmMaximo != null &&
+                            Number(deliveryKm) <= Number(deliveryConfig.kmMaximo) ? (
+                              <>No tenemos un rango de precio configurado para esa distancia (cobertura máxima {deliveryConfig.kmMaximo} km).</>
+                            ) : (
+                              <>Lo sentimos, está fuera de nuestra zona de cobertura ({deliveryConfig.kmMaximo ?? 0} km máximo).</>
+                            )}
+                          </p>
+                        )}
+                        {deliveryStatus === "error" && (
+                          <p className="cv-delivery-feedback cv-delivery-feedback--error">
+                            No pudimos calcular el costo. Verifica tu dirección
+                            e intenta nuevamente.
+                          </p>
+                        )}
+                      </div>
+                    )}
+                  </>
                 )}
               </div>
             </section>
@@ -460,11 +543,13 @@ export const CarritoView = ({
               {deliveryType === "delivery" && (
                 <div className="cv-summary__row">
                   <span>
-                    Envío{" "}
-                    {zonaSeleccionada ? `(${zonaSeleccionada.nombre})` : ""}
+                    Envío
+                    {deliveryConfig && deliveryRango && deliveryKm != null
+                      ? ` (${(Math.round(deliveryKm * 10) / 10).toFixed(1)} km — ${deliveryRango.label})`
+                      : ""}
                   </span>
                   <span>
-                    {zonaSeleccionada
+                    {deliveryRango
                       ? `$${deliveryCost.toLocaleString("es-CL")}`
                       : "—"}
                   </span>
@@ -478,7 +563,12 @@ export const CarritoView = ({
               <button
                 type="submit"
                 className="cv-confirm-btn"
-                disabled={isSubmitting}
+                disabled={
+                  isSubmitting ||
+                  (deliveryType === "delivery" &&
+                    deliveryConfig &&
+                    deliveryStatus !== "success")
+                }
               >
                 <span>{isSubmitting ? "Enviando…" : "Confirmar pedido"}</span>
                 {!isSubmitting && (

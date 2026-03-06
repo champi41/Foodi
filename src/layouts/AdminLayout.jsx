@@ -1,7 +1,9 @@
 import { NavLink, Outlet, useNavigate, useLocation } from "react-router-dom";
 import {
+  BarChart2,
   ClipboardList,
   UtensilsCrossed,
+  ChefHat,
   Settings,
   Palette,
   LogOut,
@@ -25,8 +27,7 @@ import {
 import { useEffect, useRef, useState } from "react";
 import "./AdminLayout.css";
 
-const SOUND_URL =
-  "https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3";
+const SOUND_URL = "/sounds/noti.mp3";
 
 const getHoyInicio = () => {
   const d = new Date();
@@ -117,6 +118,7 @@ const AdminLayout = ({ slug, user, businessId }) => {
 
   const [negocioNombre, setNegocioNombre] = useState(slug);
   const [negocioLogo, setNegocioLogo] = useState("");
+  const [negocio, setNegocio] = useState(null);
   const [isOpenManual, setIsOpenManual] = useState(false);
   const [horarios, setHorarios] = useState(null);
   const [togglingOpen, setTogglingOpen] = useState(false);
@@ -141,20 +143,38 @@ const AdminLayout = ({ slug, user, businessId }) => {
     return () => clearInterval(iv);
   }, []);
 
-  // Cargar datos del negocio
+  // Cargar datos del negocio (público + privado para admin)
   useEffect(() => {
     if (!businessId) return;
     const fetchNegocio = async () => {
-      const snap = await getDoc(doc(db, "negocios", businessId));
-      if (snap.exists()) {
-        const data = snap.data();
+      const [snapPublico, snapPrivado] = await Promise.all([
+        getDoc(doc(db, "negocios", businessId)),
+        getDoc(doc(db, "negocios", businessId, "privado", "config")),
+      ]);
+      if (snapPublico.exists()) {
+        const data = snapPublico.data();
+        const privado = snapPrivado?.exists() ? snapPrivado.data() : {};
+        const negocioCompleto = {
+          id: snapPublico.id,
+          ...data,
+          ...privado,
+          datosBancarios: privado.datosBancarios ?? data.datosBancarios ?? null,
+          deliveryConfig: data.deliveryConfig
+            ? {
+                ...data.deliveryConfig,
+                coordenadasLocal:
+                  privado.coordenadasLocal ?? data.deliveryConfig.coordenadasLocal,
+              }
+            : null,
+        };
+        setNegocio(negocioCompleto);
         const nombre = data.nombre || slug;
         const logo = data.logo || "";
         setNegocioNombre(nombre);
         setNegocioLogo(logo);
         setIsOpenManual(data.isOpen ?? false);
         setHorarios(data.horarios || null);
-        setDatosBancarios(data.datosBancarios || null);
+        setDatosBancarios(negocioCompleto.datosBancarios || null);
         setSuscripcion(data.suscripcion || null);
 
         document.title = `${nombre} · Admin`;
@@ -393,6 +413,16 @@ const AdminLayout = ({ slug, user, businessId }) => {
           </NavLink>
 
           <NavLink
+            to={`/${slug}/admin/ingredientes`}
+            className={({ isActive }) =>
+              `nav-item ${isActive ? "nav-item-active" : ""}`
+            }
+          >
+            <ChefHat size={18} />
+            <span>Ingredientes</span>
+          </NavLink>
+
+          <NavLink
             to={`/${slug}/admin/apariencia`}
             className={({ isActive }) =>
               `nav-item ${isActive ? "nav-item-active" : ""}`
@@ -410,6 +440,16 @@ const AdminLayout = ({ slug, user, businessId }) => {
           >
             <Settings size={18} />
             <span>Configuración</span>
+          </NavLink>
+
+          <NavLink
+            to={`/${slug}/admin/informes`}
+            className={({ isActive }) =>
+              `nav-item ${isActive ? "nav-item-active" : ""}`
+            }
+          >
+            <BarChart2 size={18} />
+            <span>Informes</span>
           </NavLink>
 
           <NavLink
@@ -558,6 +598,16 @@ const AdminLayout = ({ slug, user, businessId }) => {
           <span>Platillos</span>
         </NavLink>
         <NavLink
+          to={`/${slug}/admin/ingredientes`}
+          className={({ isActive }) =>
+            `admin-bottomnav-item ${isActive ? "admin-bottomnav-item-active" : ""}`
+          }
+          onClick={() => setMobileMenuOpen(false)}
+        >
+          <ChefHat size={20} />
+          <span>Ingred.</span>
+        </NavLink>
+        <NavLink
           to={`/${slug}/admin/apariencia`}
           className={({ isActive }) =>
             `admin-bottomnav-item ${isActive ? "admin-bottomnav-item-active" : ""}`
@@ -576,6 +626,16 @@ const AdminLayout = ({ slug, user, businessId }) => {
         >
           <Settings size={20} />
           <span>Config</span>
+        </NavLink>
+        <NavLink
+          to={`/${slug}/admin/informes`}
+          className={({ isActive }) =>
+            `admin-bottomnav-item ${isActive ? "admin-bottomnav-item-active" : ""}`
+          }
+          onClick={() => setMobileMenuOpen(false)}
+        >
+          <BarChart2 size={20} />
+          <span>Informes</span>
         </NavLink>
         <NavLink
           to={`/${slug}/admin/plan`}
@@ -659,6 +719,7 @@ const AdminLayout = ({ slug, user, businessId }) => {
               pedidosHoy,
               pedidosPendientes,
               datosBancarios,
+              negocio,
             }}
           />
         </div>

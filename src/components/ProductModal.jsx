@@ -1,6 +1,29 @@
 import React, { useState } from "react";
 import "./ProductModal.css";
 
+// Normaliza grupos legacy (maxSeleccion/limite) al formato nuevo (limite/incluidasGratis + incluido)
+const normalizeGruposForClient = (grupos = []) => {
+  return grupos.map((g) => {
+    const isLegacy = g.opciones?.length > 0 && g.opciones[0].ingredienteId === undefined;
+    let limite = g.limite ?? null;
+    let incluidasGratis = g.incluidasGratis ?? null;
+    if (isLegacy) {
+      if (g.maxSeleccion != null) {
+        limite = g.maxSeleccion;
+        incluidasGratis = null;
+      } else if (g.limite != null) {
+        incluidasGratis = g.limite;
+        limite = null;
+      }
+    }
+    const opciones = (g.opciones || []).map((op) => ({
+      ...op,
+      incluido: op.incluido ?? false,
+    }));
+    return { ...g, limite, incluidasGratis, opciones };
+  });
+};
+
 export const ProductModal = ({
   product,
   onClose,
@@ -9,7 +32,7 @@ export const ProductModal = ({
 }) => {
   if (!product) return null;
 
-  const grupos = product.grupos ?? [];
+  const grupos = normalizeGruposForClient(product.grupos ?? []);
 
   const [cantidad, setCantidad] = useState(editingItem?.cantidad ?? 1);
   const [nota, setNota] = useState(editingItem?.nota ?? "");
@@ -47,19 +70,17 @@ export const ProductModal = ({
     ];
     const totalActual = current.reduce((s, o) => s + o.cantidad, 0);
 
-    if (delta > 0 && grupo.maxSeleccion && totalActual >= grupo.maxSeleccion)
-      return;
+    // Límite de cantidad (cada una cobra): no pasar del máximo
+    const maxPermitido = grupo.limite != null && grupo.incluidasGratis == null;
+    if (delta > 0 && maxPermitido && totalActual >= grupo.limite) return;
 
     const existingIdx = current.findIndex((o) => o.nombre === opcion.nombre);
 
-    // modoIncluidas: tiene limite (incluyendo 0) pero NO maxSeleccion
-    //   limite=0 → todas cobran desde la primera (0 gratis)
-    //   limite=N → las primeras N gratis, el exceso cobra
-    // modoPrecio: tiene maxSeleccion pero NO limite → cada opción cobra su extra siempre
-    const modoIncluidas = grupo.limite != null && !grupo.maxSeleccion;
+    // Modo "N incluidas gratis": primeras N gratis, exceso cobra
+    const modoIncluidasGratis = grupo.incluidasGratis != null;
 
     if (delta > 0) {
-      if (modoIncluidas && totalActual >= grupo.limite) {
+      if (modoIncluidasGratis && totalActual >= grupo.incluidasGratis) {
         setCostoExcesos((prev) => ({
           ...prev,
           [gi]: (prev[gi] || 0) + (opcion.extra || 0),
@@ -74,7 +95,7 @@ export const ProductModal = ({
         current.push({ ...opcion, cantidad: 1 });
       }
     } else {
-      if (modoIncluidas && totalActual > grupo.limite) {
+      if (modoIncluidasGratis && totalActual > grupo.incluidasGratis) {
         setCostoExcesos((prev) => ({
           ...prev,
           [gi]: Math.max(0, (prev[gi] || 0) - (opcion.extra || 0)),
@@ -93,16 +114,25 @@ export const ProductModal = ({
     setSelecciones({ ...selecciones, [gi]: current });
   };
 
-  // ── Precio ──
+  // ── Precio grupos (nuevo schema + legacy normalizado) ──
   const precioGrupos = grupos.reduce((acc, g, gi) => {
-    if (g.tipo === "single") return acc + (selecciones[gi]?.extra || 0);
-    // modoPrecio (maxSeleccion sin limite): cada opción elegida cobra su extra × cantidad
-    if (g.maxSeleccion && g.limite == null) {
-      const sel = Array.isArray(selecciones[gi]) ? selecciones[gi] : [];
-      return acc + sel.reduce((s, o) => s + (o.extra || 0) * o.cantidad, 0);
+    if (g.tipo === "single") {
+      const sel = selecciones[gi];
+      if (!sel) return acc;
+      return acc + (sel.incluido ? 0 : (sel.extra || 0));
     }
-    // modoIncluidas (limite != null, sin maxSeleccion): usa costoExcesos acumulado
-    // limite=0 → todas cobran, costoExcesos se llena desde la primera opción
+    // multiple: límite de cantidad (cada una cobra su extra o $0 si incluido)
+    if (g.limite != null && g.incluidasGratis == null) {
+      const sel = Array.isArray(selecciones[gi]) ? selecciones[gi] : [];
+      return (
+        acc +
+        sel.reduce(
+          (s, o) => s + (o.incluido ? 0 : (o.extra || 0)) * o.cantidad,
+          0,
+        )
+      );
+    }
+    // multiple: N incluidas gratis, exceso cobra (costoExcesos ya acumula)
     return acc + (costoExcesos[gi] || 0);
   }, 0);
   const precioExtras = extras.reduce((acc, e) => acc + e.precio, 0);
@@ -212,19 +242,23 @@ export const ProductModal = ({
               0,
             );
             const limiteAlcanzado =
-              g.maxSeleccion && totalUnidades >= g.maxSeleccion;
-            const excedidoGratis = g.limite && totalUnidades > g.limite;
+              g.limite != null &&
+              g.incluidasGratis == null &&
+              totalUnidades >= g.limite;
+            const excedidoGratis =
+              g.incluidasGratis != null &&
+              totalUnidades > g.incluidasGratis;
             const costoExcesoActual = costoExcesos[gi] || 0;
 
             const grupoInfo = [];
             if (g.tipo === "single") grupoInfo.push("Elige uno");
             if (g.tipo === "multiple") {
-              if (g.maxSeleccion)
-                grupoInfo.push(`Elige hasta ${g.maxSeleccion}`);
+              if (g.limite != null && g.incluidasGratis == null)
+                grupoInfo.push(`Elige hasta ${g.limite}`);
               else grupoInfo.push("Elige varios");
-              if (g.limite)
+              if (g.incluidasGratis != null)
                 grupoInfo.push(
-                  `${g.limite} incluida${g.limite > 1 ? "s" : ""}`,
+                  `${g.incluidasGratis} incluida${g.incluidasGratis !== 1 ? "s" : ""}`,
                 );
             }
 
@@ -263,9 +297,14 @@ export const ProductModal = ({
                                 {op.nombre}
                               </span>
                             </div>
-                            {op.extra > 0 && (
+                            {!op.incluido && op.extra > 0 && (
                               <span className="pm-option-price">
                                 +${op.extra.toLocaleString("es-CL")}
+                              </span>
+                            )}
+                            {op.incluido && (
+                              <span className="pm-option-subtext">
+                                Incluido
                               </span>
                             )}
                             <input
@@ -296,15 +335,25 @@ export const ProductModal = ({
                         >
                           <div className="pm-option-left">
                             <span className="pm-option-name">{op.nombre}</span>
-                            {op.extra > 0 ? (
-                              <span className="pm-option-subtext">
-                                +${op.extra.toLocaleString("es-CL")} si excede
-                              </span>
-                            ) : (
+                            {g.incluidasGratis != null ? (
+                              op.extra > 0 ? (
+                                <span className="pm-option-subtext">
+                                  +${op.extra.toLocaleString("es-CL")} si excede
+                                </span>
+                              ) : (
+                                <span className="pm-option-subtext">
+                                  Incluida
+                                </span>
+                              )
+                            ) : op.incluido ? (
                               <span className="pm-option-subtext">
                                 Incluida
                               </span>
-                            )}
+                            ) : op.extra > 0 ? (
+                              <span className="pm-option-subtext">
+                                +${op.extra.toLocaleString("es-CL")}
+                              </span>
+                            ) : null}
                           </div>
                           <div className="pm-qty">
                             <button
@@ -339,25 +388,25 @@ export const ProductModal = ({
                   <div
                     className={`pm-limit-bar ${excedidoGratis ? "pm-limit-bar--over" : ""}`}
                   >
-                    {g.maxSeleccion ? (
+                    {g.limite != null && g.incluidasGratis == null ? (
                       <>
                         <div
                           className="pm-limit-fill"
                           style={{
-                            width: `${Math.min(100, (totalUnidades / g.maxSeleccion) * 100)}%`,
+                            width: `${Math.min(100, (totalUnidades / g.limite) * 100)}%`,
                           }}
                         />
                         <span className="pm-limit-text">
-                          {totalUnidades}/{g.maxSeleccion}
+                          {totalUnidades}/{g.limite}
                           {limiteAlcanzado ? " · Máximo alcanzado" : ""}
                           {excedidoGratis && costoExcesoActual > 0
                             ? ` · Exceso: +$${costoExcesoActual.toLocaleString("es-CL")}`
                             : ""}
                         </span>
                       </>
-                    ) : g.limite ? (
+                    ) : g.incluidasGratis != null ? (
                       <span className="pm-limit-text">
-                        {totalUnidades}/{g.limite} incluidas
+                        {totalUnidades}/{g.incluidasGratis} incluidas
                         {excedidoGratis && costoExcesoActual > 0
                           ? ` · Exceso: +$${costoExcesoActual.toLocaleString("es-CL")}`
                           : ""}

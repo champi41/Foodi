@@ -750,6 +750,78 @@
   background: #1e293b;
 }
 
+/* ── DELIVERY POR DISTANCIA ── */
+.delivery-dir-row {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.delivery-dir-row input {
+  flex: 1;
+  min-width: 200px;
+}
+.btn-verificar-ubicacion {
+  padding: 9px 14px;
+  background: #0f172a;
+  color: #fff;
+  border: none;
+  border-radius: 10px;
+  font-size: 13px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.btn-verificar-ubicacion:hover:not(:disabled) {
+  background: #1e293b;
+}
+.btn-verificar-ubicacion:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+.delivery-geocode-ok {
+  font-size: 13px;
+  color: #15803d;
+  margin-top: 6px;
+}
+.delivery-geocode-error {
+  font-size: 13px;
+  color: #b91c1c;
+  margin-top: 6px;
+}
+.delivery-rangos-table-wrap {
+  overflow-x: auto;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  padding: 12px;
+  background: #f8fafc;
+}
+.delivery-rangos-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+.delivery-rangos-table th,
+.delivery-rangos-table td {
+  padding: 8px 10px;
+  text-align: left;
+}
+.delivery-rangos-table th {
+  font-weight: 700;
+  color: #334155;
+}
+.delivery-rangos-table input {
+  width: 100%;
+  max-width: 90px;
+  padding: 6px 8px;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+}
+.delivery-rangos-table input[type="text"] {
+  max-width: 140px;
+}
+.delivery-rangos-table .btn-delete-zona {
+  margin-left: 4px;
+}
+
 /* ── PAGOS ── */
 .pago-card {
   border: 1.5px solid #e2e8f0;

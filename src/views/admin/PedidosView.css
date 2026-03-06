@@ -282,7 +282,21 @@
   letter-spacing: 0.3px;
 }
 
-/* Badge de pago confirmado */
+/* Como botón: hover "Confirmar Pago" */
+.badge-transferencia-pendiente--btn {
+  cursor: pointer;
+  font-family: inherit;
+}
+.badge-transferencia-pendiente--btn:hover:not(:disabled) {
+  background: #fde68a;
+  border-color: #fcd34d;
+}
+.badge-transferencia-pendiente--btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.8;
+}
+
+/* Badge de pago confirmado (no clickeable) */
 .badge-transferencia-ok {
   font-size: 10px;
   font-weight: 800;
@@ -293,6 +307,10 @@
   border-radius: 20px;
   white-space: nowrap;
   letter-spacing: 0.3px;
+}
+
+.badge-transferencia-ok--disabled {
+  cursor: default;
 }
 
 /* ── BODY (dos columnas) ── */
@@ -556,6 +574,129 @@
 .btn-cargar-mas:hover {
   border-color: #3b82f6;
   color: #3b82f6;
+}
+
+/* ── ESCRITORIO: fuente más grande (mucha info) ── */
+@media (min-width: 769px) {
+  .pedidos-title {
+    font-size: 24px;
+  }
+
+  .pedidos-subtitle {
+    font-size: 12px;
+  }
+
+  .live-badge {
+    font-size: 12px;
+    padding: 6px 14px;
+  }
+
+  .btn-finalizados {
+    font-size: 13px;
+    padding: 8px 16px;
+  }
+
+  .filtro-btn {
+    font-size: 13px;
+    padding: 8px 16px;
+  }
+
+  .filtro-count {
+    font-size: 11px;
+    padding: 2px 8px;
+  }
+
+  .pedido-numero {
+    font-size: 15px;
+  }
+
+  .pedido-fecha {
+    font-size: 13px;
+  }
+
+  .badge,
+  .badge-transferencia-pendiente,
+  .badge-transferencia-ok {
+    font-size: 11px;
+    padding: 4px 10px;
+  }
+
+  .cliente-nombre {
+    font-size: 15px;
+  }
+
+  .cliente-telefono {
+    font-size: 13px;
+  }
+
+  .entrega-tipo {
+    font-size: 11px;
+  }
+
+  .entrega-detalle {
+    font-size: 13px;
+  }
+
+  .items-titulo {
+    font-size: 11px;
+    margin-bottom: 12px;
+  }
+
+  .item-cantidad,
+  .item-nombre {
+    font-size: 15px;
+  }
+
+  .item-precio {
+    font-size: 14px;
+  }
+
+  .item-detalles,
+  .detalle-grupo {
+    font-size: 13px;
+  }
+
+  .item-nota-icon,
+  .item-nota-texto {
+    font-size: 12px;
+  }
+
+  .total-label,
+  .pago-label {
+    font-size: 10px;
+  }
+
+  .total-valor {
+    font-size: 22px;
+  }
+
+  .pago-valor {
+    font-size: 14px;
+  }
+
+  .btn-accion {
+    font-size: 13px;
+    padding: 10px 20px;
+  }
+
+  .btn-rechazar {
+    font-size: 12px;
+    padding: 8px 12px;
+  }
+
+  .historial-seccion-label {
+    font-size: 12px;
+  }
+
+  .historial-loading,
+  .historial-fin {
+    font-size: 14px;
+  }
+
+  .btn-cargar-mas {
+    font-size: 14px;
+    padding: 12px 28px;
+  }
 }
 
 /* ── RESPONSIVE ── */

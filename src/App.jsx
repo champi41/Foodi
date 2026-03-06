@@ -19,6 +19,8 @@ import { PlatillosView } from "./views/admin/PlatillosView";
 import { ConfigView } from "./views/admin/ConfigView";
 import { PersonalizacionView } from "./views/admin/Personalizacionview";
 import { PlanView } from "./views/admin/PlanView";
+import { IngredientesView } from "./views/admin/IngredientesView";
+import { InformesView } from "./views/admin/InformesView";
 import { SuperAdminView } from "./views/superadmin/SuperAdminView";
 
 // ── Wrapper que provee slug + businessId a las rutas anidadas ──
@@ -84,12 +86,20 @@ const NegocioRoutes = ({ user }) => {
           element={<PlatillosView businessId={businessId} />}
         />
         <Route
+          path="ingredientes"
+          element={<IngredientesView businessId={businessId} />}
+        />
+        <Route
           path="apariencia"
           element={<PersonalizacionView businessId={businessId} />}
         />
         <Route
           path="configuracion"
           element={<ConfigView businessId={businessId} />}
+        />
+        <Route
+          path="informes"
+          element={<InformesView businessId={businessId} />}
         />
         <Route path="plan" element={<PlanView businessId={businessId} />} />
       </Route>

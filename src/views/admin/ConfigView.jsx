@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from "react";
 import { doc, getDoc, setDoc } from "firebase/firestore";
 import { db, auth } from "../../api/firebase";
+import { geocodificar } from "../../utils/delivery";
+import { DeliveryMapPreview } from "../../components/admin/DeliveryMapPreview";
 import "./ConfigView.css";
 
 const DIAS = [
@@ -16,13 +18,16 @@ const DIAS = [
 const CONFIG_INICIAL = {
   nombre: "",
   whatsapp: "",
+  rut: "",
+  razonSocial: "",
+  giro: "",
   tiposEntrega: { retiro: true, delivery: false },
   metodosPago: {
     efectivo: { activo: true, retiro: true, delivery: true },
     transferencia: { activo: true, retiro: true, delivery: true },
     tarjetaPresencial: { activo: false, retiro: true, delivery: false },
   },
-  zonasDelivery: [],
+  deliveryConfig: null,
   datosBancarios: {
     nombre: "",
     banco: "",
@@ -98,46 +103,77 @@ export const ConfigView = ({ businessId }) => {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
-  const [nuevaZona, setNuevaZona] = useState({ nombre: "", precio: "" });
+  const [geocodeStatus, setGeocodeStatus] = useState(null);
+  const [geocodeLoading, setGeocodeLoading] = useState(false);
+  const [direccionVerificada, setDireccionVerificada] = useState(null);
+  const inicialDireccionFromDb = React.useRef(false);
 
   useEffect(() => {
     if (tenantId) fetchConfig();
   }, [tenantId]);
 
+  // Sincronizar dirección ya verificada al cargar desde la base de datos (solo una vez)
+  useEffect(() => {
+    if (
+      !loading &&
+      config.deliveryConfig?.coordenadasLocal &&
+      config.deliveryConfig?.direccionLocal?.trim() &&
+      !inicialDireccionFromDb.current
+    ) {
+      setDireccionVerificada(config.deliveryConfig.direccionLocal.trim());
+      inicialDireccionFromDb.current = true;
+    }
+  }, [loading, config.deliveryConfig?.coordenadasLocal, config.deliveryConfig?.direccionLocal]);
+
   const fetchConfig = async () => {
     try {
-      const snap = await getDoc(doc(db, "negocios", tenantId));
-      if (snap.exists()) {
-        const data = snap.data();
-        setConfig({
-          ...CONFIG_INICIAL,
-          ...data,
-          tiposEntrega: {
-            ...CONFIG_INICIAL.tiposEntrega,
-            ...data.tiposEntrega,
+      const [snapPublico, snapPrivado] = await Promise.all([
+        getDoc(doc(db, "negocios", tenantId)),
+        getDoc(doc(db, "negocios", tenantId, "privado", "config")),
+      ]);
+      const publico = snapPublico.exists() ? snapPublico.data() : {};
+      const privado = snapPrivado.exists() ? snapPrivado.data() : {};
+
+      const deliveryConfigPublico = publico.deliveryConfig || null;
+      const coordenadasLocal =
+        privado.coordenadasLocal ?? deliveryConfigPublico?.coordenadasLocal ?? null;
+      const deliveryConfig = deliveryConfigPublico
+        ? { ...deliveryConfigPublico, coordenadasLocal }
+        : null;
+
+      setConfig({
+        ...CONFIG_INICIAL,
+        nombre: publico.nombre || "",
+        whatsapp: publico.whatsapp || "",
+        slug: publico.slug || "",
+        tiposEntrega: {
+          ...CONFIG_INICIAL.tiposEntrega,
+          ...publico.tiposEntrega,
+        },
+        horarios: { ...CONFIG_INICIAL.horarios, ...publico.horarios },
+        deliveryConfig,
+        metodosPago: {
+          efectivo: {
+            ...CONFIG_INICIAL.metodosPago.efectivo,
+            ...publico.metodosPago?.efectivo,
           },
-          metodosPago: {
-            efectivo: {
-              ...CONFIG_INICIAL.metodosPago.efectivo,
-              ...data.metodosPago?.efectivo,
-            },
-            transferencia: {
-              ...CONFIG_INICIAL.metodosPago.transferencia,
-              ...data.metodosPago?.transferencia,
-            },
-            tarjetaPresencial: {
-              ...CONFIG_INICIAL.metodosPago.tarjetaPresencial,
-              ...data.metodosPago?.tarjetaPresencial,
-            },
+          transferencia: {
+            ...CONFIG_INICIAL.metodosPago.transferencia,
+            ...publico.metodosPago?.transferencia,
           },
-          zonasDelivery: data.zonasDelivery || [],
-          datosBancarios: {
-            ...CONFIG_INICIAL.datosBancarios,
-            ...data.datosBancarios,
+          tarjetaPresencial: {
+            ...CONFIG_INICIAL.metodosPago.tarjetaPresencial,
+            ...publico.metodosPago?.tarjetaPresencial,
           },
-          horarios: { ...CONFIG_INICIAL.horarios, ...data.horarios },
-        });
-      }
+        },
+        rut: privado.rut || "",
+        razonSocial: privado.razonSocial || "",
+        giro: privado.giro || "",
+        datosBancarios: {
+          ...CONFIG_INICIAL.datosBancarios,
+          ...privado.datosBancarios,
+        },
+      });
     } catch (e) {
       console.error(e);
     }
@@ -148,20 +184,71 @@ export const ConfigView = ({ businessId }) => {
     e.preventDefault();
     setSaving(true);
     try {
-      // merge: true preserva tema y logo gestionados por PersonalizacionView
-      await setDoc(
-        doc(db, "negocios", tenantId),
-        {
-          nombre: config.nombre,
-          whatsapp: config.whatsapp,
-          tiposEntrega: config.tiposEntrega,
-          metodosPago: config.metodosPago,
-          zonasDelivery: config.zonasDelivery,
-          datosBancarios: config.datosBancarios,
-          horarios: config.horarios,
-        },
-        { merge: true },
-      );
+      if (config.deliveryConfig) {
+        const rangos = [...(config.deliveryConfig.rangos || [])]
+          .filter(
+            (r) =>
+              r.kmDesde != null &&
+              r.kmHasta != null &&
+              r.label?.trim() &&
+              r.precio != null,
+          )
+          .sort((a, b) => a.kmDesde - b.kmDesde);
+        let solapan = false;
+        for (let i = 0; i < rangos.length - 1; i++) {
+          if (rangos[i].kmHasta > rangos[i + 1].kmDesde) {
+            solapan = true;
+            break;
+          }
+        }
+        if (solapan) {
+          alert("Los rangos de km no pueden solaparse. Ajusta Desde/Hasta.");
+          setSaving(false);
+          return;
+        }
+      }
+
+      const payloadPublico = {
+        nombre: config.nombre,
+        whatsapp: config.whatsapp,
+        tiposEntrega: config.tiposEntrega,
+        horarios: config.horarios,
+        metodosPago: config.metodosPago,
+      };
+      if (config.deliveryConfig) {
+        payloadPublico.deliveryConfig = {
+          direccionLocal: config.deliveryConfig.direccionLocal || "",
+          coordenadasLocal: config.deliveryConfig.coordenadasLocal || null,
+          rangos: config.deliveryConfig.rangos || [],
+          kmMaximo: Number(config.deliveryConfig.kmMaximo) || 0,
+        };
+      }
+      payloadPublico.datosTransferencia = {
+        nombre: config.datosBancarios.nombre || "",
+        banco: config.datosBancarios.banco || "",
+        tipoCuenta: config.datosBancarios.tipoCuenta || "",
+        nroCuenta: config.datosBancarios.nroCuenta || "",
+        emailComprobante: config.datosBancarios.emailComprobante || "",
+      };
+
+      const payloadPrivado = {
+        rut: config.rut,
+        razonSocial: config.razonSocial,
+        giro: config.giro,
+        datosBancarios: config.datosBancarios,
+      };
+      if (config.deliveryConfig?.coordenadasLocal) {
+        payloadPrivado.coordenadasLocal = config.deliveryConfig.coordenadasLocal;
+      }
+
+      await Promise.all([
+        setDoc(doc(db, "negocios", tenantId), payloadPublico, { merge: true }),
+        setDoc(
+          doc(db, "negocios", tenantId, "privado", "config"),
+          payloadPrivado,
+          { merge: true },
+        ),
+      ]);
       setSaved(true);
       setTimeout(() => setSaved(false), 2500);
     } catch (e) {
@@ -202,23 +289,86 @@ export const ConfigView = ({ businessId }) => {
       datosBancarios: { ...p.datosBancarios, [campo]: valor },
     }));
 
-  const agregarZona = () => {
-    if (!nuevaZona.nombre.trim() || nuevaZona.precio === "") return;
-    setConfig((p) => ({
-      ...p,
-      zonasDelivery: [
-        ...p.zonasDelivery,
-        { nombre: nuevaZona.nombre.trim(), precio: Number(nuevaZona.precio) },
-      ],
-    }));
-    setNuevaZona({ nombre: "", precio: "" });
+  const deliveryConfig = config.deliveryConfig || {
+    direccionLocal: "",
+    coordenadasLocal: null,
+    rangos: [],
+    kmMaximo: 10,
   };
 
-  const eliminarZona = (idx) =>
+  const setDeliveryConfig = (field, value) =>
     setConfig((p) => ({
       ...p,
-      zonasDelivery: p.zonasDelivery.filter((_, i) => i !== idx),
+      deliveryConfig: {
+        ...(p.deliveryConfig || {
+          direccionLocal: "",
+          coordenadasLocal: null,
+          rangos: [],
+          kmMaximo: 10,
+        }),
+        [field]: value,
+      },
     }));
+
+  const setDeliveryRango = (idx, field, value) =>
+    setConfig((p) => {
+      const rangos = [...(p.deliveryConfig?.rangos || [])];
+      if (!rangos[idx]) return p;
+      rangos[idx] = { ...rangos[idx], [field]: value };
+      return {
+        ...p,
+        deliveryConfig: {
+          ...(p.deliveryConfig || {}),
+          rangos,
+        },
+      };
+    });
+
+  const agregarRangoDelivery = () =>
+    setConfig((p) => {
+      const rangos = p.deliveryConfig?.rangos || [];
+      const last = rangos[rangos.length - 1];
+      const kmDesde = last ? last.kmHasta : 0;
+      return {
+        ...p,
+        deliveryConfig: {
+          ...(p.deliveryConfig || { direccionLocal: "", coordenadasLocal: null, kmMaximo: 10 }),
+          rangos: [
+            ...rangos,
+            { kmDesde, kmHasta: kmDesde + 2, precio: 0, label: "" },
+          ],
+        },
+      };
+    });
+
+  const eliminarRangoDelivery = (idx) =>
+    setConfig((p) => ({
+      ...p,
+      deliveryConfig: {
+        ...p.deliveryConfig,
+        rangos: (p.deliveryConfig?.rangos || []).filter((_, i) => i !== idx),
+      },
+    }));
+
+  const handleVerificarUbicacion = async () => {
+    const dir = deliveryConfig.direccionLocal?.trim();
+    if (!dir) return;
+    setGeocodeLoading(true);
+    setGeocodeStatus(null);
+    try {
+      const result = await geocodificar(dir);
+      if (result) {
+        setGeocodeStatus({ ok: true, formatted: result.formatted });
+        setDeliveryConfig("coordenadasLocal", { lat: result.lat, lng: result.lng });
+        setDireccionVerificada(dir);
+      } else {
+        setGeocodeStatus({ ok: false });
+      }
+    } catch (e) {
+      setGeocodeStatus({ ok: false });
+    }
+    setGeocodeLoading(false);
+  };
 
   if (loading) return <div className="loading">Cargando configuración...</div>;
 
@@ -240,6 +390,7 @@ export const ConfigView = ({ businessId }) => {
               onChange={(e) =>
                 setConfig((p) => ({ ...p, nombre: e.target.value }))
               }
+              type="text"
               placeholder="Ej: Sushi Frutillar"
             />
           </div>
@@ -251,6 +402,40 @@ export const ConfigView = ({ businessId }) => {
                 setConfig((p) => ({ ...p, whatsapp: e.target.value }))
               }
               placeholder="+56912345678"
+              type="tel"
+            />
+          </div>
+          <div className="config-row">
+            <label>RUT</label>
+            <input
+              value={config.rut}
+              onChange={(e) =>
+                setConfig((p) => ({ ...p, rut: e.target.value }))
+              }
+              placeholder="77.614.693-5"
+              type="text"
+            />
+          </div>
+          <div className="config-row">
+            <label>Razón Social</label>
+            <input
+              value={config.razonSocial}
+              onChange={(e) =>
+                setConfig((p) => ({ ...p, razonSocial: e.target.value }))
+              }
+              placeholder="Kyomu Sushi E.I.R.L."
+              type="text"
+            />
+          </div>
+          <div className="config-row">
+            <label>Giro / Actividad</label>
+            <input
+              value={config.giro}
+              onChange={(e) =>
+                setConfig((p) => ({ ...p, giro: e.target.value }))
+              }
+              placeholder="Venta de comida preparada SUSHI"
+              type="text"
             />
           </div>
         </section>
@@ -291,59 +476,171 @@ export const ConfigView = ({ businessId }) => {
           </div>
         </section>
 
-        {/* ── ZONAS DE DELIVERY ── */}
+        {/* ── DELIVERY POR DISTANCIA (Google Maps) ── */}
         {deliveryActivo && (
           <section className="config-section">
-            <h2>Zonas de Delivery</h2>
+            <h2>Delivery por distancia</h2>
             <p className="config-hint">
-              Define sectores de tu ciudad con su precio de envío. El cliente
-              elegirá su zona al hacer el pedido.
+              Configura la dirección del local y rangos de km con su precio. El
+              costo se calcula según la distancia al cliente (Google Maps).
             </p>
-            <div className="zonas-list">
-              {config.zonasDelivery.length === 0 && (
-                <p style={{ fontSize: 13, color: "#999" }}>
-                  Sin zonas definidas aún.
+
+            <div className="config-row">
+              <label>Dirección del local</label>
+              <div className="delivery-dir-row">
+                <input
+                  type="text"
+                  placeholder="Ej: Emilio Luppi 435, Frutillar, Chile"
+                  value={deliveryConfig.direccionLocal}
+                  onChange={(e) => {
+                    setDeliveryConfig("direccionLocal", e.target.value);
+                    setGeocodeStatus(null);
+                  }}
+                />
+                <button
+                  type="button"
+                  className="btn-verificar-ubicacion"
+                  onClick={handleVerificarUbicacion}
+                  disabled={
+                    geocodeLoading ||
+                    !deliveryConfig.direccionLocal?.trim() ||
+                    (deliveryConfig.coordenadasLocal &&
+                      deliveryConfig.direccionLocal?.trim() ===
+                        direccionVerificada?.trim())
+                  }
+                >
+                  {geocodeLoading ? "Verificando…" : "Verificar ubicación"}
+                </button>
+              </div>
+              {geocodeStatus?.ok && (
+                <p className="delivery-geocode-ok">
+                  ✓ Ubicación verificada: {geocodeStatus.formatted}
                 </p>
               )}
-              {config.zonasDelivery.map((z, idx) => (
-                <div key={idx} className="zona-row">
-                  <span className="zona-nombre">{z.nombre}</span>
-                  <span className="zona-precio">
-                    ${z.precio.toLocaleString("es-CL")}
-                  </span>
-                  <button
-                    type="button"
-                    className="btn-delete-zona"
-                    onClick={() => eliminarZona(idx)}
-                  >
-                    ✕
-                  </button>
-                </div>
-              ))}
+              {geocodeStatus && !geocodeStatus.ok && !geocodeLoading && (
+                <p className="delivery-geocode-error">
+                  No se encontró la dirección. Intenta con más detalle.
+                </p>
+              )}
             </div>
-            <div className="zona-add-row">
-              <input
-                placeholder="Nombre sector (ej: Centro)"
-                value={nuevaZona.nombre}
-                onChange={(e) =>
-                  setNuevaZona((p) => ({ ...p, nombre: e.target.value }))
-                }
-              />
+
+            <div className="config-row">
+              <label>Distancia máxima de cobertura (km)</label>
               <input
                 type="number"
-                placeholder="$ Precio envío"
-                value={nuevaZona.precio}
-                onChange={(e) =>
-                  setNuevaZona((p) => ({ ...p, precio: e.target.value }))
-                }
+                min="0.1"
+                step="0.1"
+                value={deliveryConfig.kmMaximo}
+                onChange={(e) => {
+                  const raw = String(e.target.value).replace(",", ".");
+                  const num = raw === "" ? 0 : Number(raw);
+                  setDeliveryConfig("kmMaximo", Number.isFinite(num) ? num : 0);
+                }}
               />
-              <button
-                type="button"
-                className="btn-add-zona"
-                onClick={agregarZona}
-              >
-                + Agregar
-              </button>
+              <p className="config-hint">
+                Pedidos fuera de este rango serán rechazados automáticamente.
+              </p>
+            </div>
+
+            <div className="config-row">
+              <label>Rangos de precio por distancia</label>
+              <div className="delivery-rangos-table-wrap">
+                <table className="delivery-rangos-table">
+                  <thead>
+                    <tr>
+                      <th>Desde (km)</th>
+                      <th>Hasta (km)</th>
+                      <th>Nombre / label</th>
+                      <th>Precio ($)</th>
+                      <th></th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {(deliveryConfig.rangos || []).map((r, idx) => (
+                      <tr key={idx}>
+                        <td>
+                          <input
+                            type="number"
+                            min="0"
+                            step="0.5"
+                            value={r.kmDesde}
+                            onChange={(e) =>
+                              setDeliveryRango(
+                                idx,
+                                "kmDesde",
+                                Number(e.target.value) || 0,
+                              )
+                            }
+                          />
+                        </td>
+                        <td>
+                          <input
+                            type="number"
+                            min="0"
+                            step="0.5"
+                            value={r.kmHasta}
+                            onChange={(e) =>
+                              setDeliveryRango(
+                                idx,
+                                "kmHasta",
+                                Number(e.target.value) || 0,
+                              )
+                            }
+                          />
+                        </td>
+                        <td>
+                          <input
+                            type="text"
+                            placeholder="Zona Centro"
+                            value={r.label}
+                            onChange={(e) =>
+                              setDeliveryRango(idx, "label", e.target.value)
+                            }
+                          />
+                        </td>
+                        <td>
+                          <input
+                            type="number"
+                            min="0"
+                            value={r.precio}
+                            onChange={(e) =>
+                              setDeliveryRango(
+                                idx,
+                                "precio",
+                                Number(e.target.value) || 0,
+                              )
+                            }
+                          />
+                        </td>
+                        <td>
+                          <button
+                            type="button"
+                            className="btn-delete-zona"
+                            onClick={() => eliminarRangoDelivery(idx)}
+                          >
+                            ✕
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+                <button
+                  type="button"
+                  className="btn-add-zona"
+                  onClick={agregarRangoDelivery}
+                >
+                  + Agregar rango
+                </button>
+                {deliveryConfig.coordenadasLocal?.lat != null &&
+                  deliveryConfig.coordenadasLocal?.lng != null && (
+                    <DeliveryMapPreview
+                      coordenadas={deliveryConfig.coordenadasLocal}
+                      rangos={deliveryConfig.rangos || []}
+                      nombreLocal={config.nombre}
+                    />
+                  )}
+              </div>
             </div>
           </section>
         )}

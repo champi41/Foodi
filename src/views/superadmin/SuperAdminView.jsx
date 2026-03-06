@@ -304,7 +304,6 @@ const ModalNuevoNegocio = ({ onClose, onCreated }) => {
           transferencia: { activo: true, retiro: true, delivery: true },
           tarjetaPresencial: { activo: false, retiro: true, delivery: false },
         },
-        zonasDelivery: [],
         datosBancarios: {
           nombre: "",
           banco: "",

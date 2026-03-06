@@ -1,0 +1,154 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ─────────────────────────────────────────────────────────────
+    // FUNCIONES AUXILIARES
+    // ─────────────────────────────────────────────────────────────
+
+    function isOwner(negocioId) {
+      return request.auth != null && request.auth.uid == negocioId;
+    }
+
+    function fieldUnchanged(field) {
+      return !(field in request.resource.data)
+          || request.resource.data[field] == resource.data[field];
+    }
+
+    // Payload real que envía CarritoView.jsx en handleSubmitOrder:
+    //   cliente      → objeto { name, phone, address, zona }
+    //   tipoEntrega  → "retiro" | "delivery"
+    //   metodoPago   → "efectivo" | "transferencia" | "tarjetaPresencial"
+    //   items        → array de productos con selecciones
+    //   subtotal     → number
+    //   costoEnvio   → number
+    //   total        → number
+    //   estado       → siempre "pendiente" al crear
+    //   fecha        → serverTimestamp()
+    //   viewed       → false
+    function isValidOrder() {
+      let data = request.resource.data;
+      let allowed = [
+        'cliente', 'tipoEntrega', 'metodoPago',
+        'items', 'subtotal', 'costoEnvio', 'total',
+        'estado', 'fecha', 'viewed'
+      ].toSet();
+      return data.keys().toSet().hasOnly(allowed)
+          && data.estado     == 'pendiente'
+          && data.total       is number
+          && data.total       >  0
+          && data.subtotal    is number
+          && data.costoEnvio  is number
+          && data.items       is list
+          && data.items.size() > 0
+          && (data.tipoEntrega == 'retiro' || data.tipoEntrega == 'delivery')
+          && data.viewed      == false;
+    }
+
+    // El cliente anonimo solo puede cancelar su pedido si estaba pendiente
+    function isValidClientUpdate() {
+      let changed = request.resource.data.diff(resource.data).affectedKeys();
+      return changed.hasOnly(['estado'])
+          && request.resource.data.estado == 'cancelado'
+          && resource.data.estado         == 'pendiente';
+    }
+
+
+    // ─────────────────────────────────────────────────────────────
+    // NEGOCIOS   /negocios/{negocioId}
+    // ─────────────────────────────────────────────────────────────
+    match /negocios/{negocioId} {
+
+      allow read: if true;
+
+      allow create: if isOwner(negocioId);
+
+      allow update: if isOwner(negocioId)
+                    && fieldUnchanged('slug');
+
+      allow delete: if false;
+
+      // Subcolección privada — solo el dueño (datos sensibles: RUT, datos bancarios, razón social, giro)
+      match /privado/{docId} {
+        allow read:  if isOwner(negocioId);
+        allow write: if isOwner(negocioId);
+      }
+
+      // ───────────────────────────────────────────────────────────
+      // CATEGORIAS
+      // ───────────────────────────────────────────────────────────
+      match /categorias/{catId} {
+        allow read:  if true;
+        allow write: if isOwner(negocioId);
+      }
+
+
+      // ───────────────────────────────────────────────────────────
+      // PRODUCTOS
+      // ───────────────────────────────────────────────────────────
+      match /productos/{productoId} {
+        allow read:  if true;
+        allow write: if isOwner(negocioId);
+      }
+
+
+      // ───────────────────────────────────────────────────────────
+      // INGREDIENTES
+      // ───────────────────────────────────────────────────────────
+      match /ingredientes/{ingredienteId} {
+        allow read:  if isOwner(negocioId);
+        allow write: if isOwner(negocioId);
+      }
+
+
+      // ───────────────────────────────────────────────────────────
+      // CATEGORÍAS DE INGREDIENTES
+      // ───────────────────────────────────────────────────────────
+      match /categoriasIngredientes/{catId} {
+        allow read:  if isOwner(negocioId);
+        allow write: if isOwner(negocioId);
+      }
+
+
+      // ───────────────────────────────────────────────────────────
+      // PEDIDOS
+      // ───────────────────────────────────────────────────────────
+      match /pedidos/{pedidoId} {
+
+        // Solo el dueno puede leer pedidos
+        allow read: if isOwner(negocioId);
+
+        // Cualquier visitante puede crear un pedido si el payload es valido
+        allow create: if isValidOrder();
+
+        // El dueno puede modificar cualquier campo
+        // Un cliente anonimo solo puede cancelar si el pedido esta pendiente
+        allow update: if isOwner(negocioId)
+                      || isValidClientUpdate();
+
+        // Solo el dueno puede eliminar pedidos
+        allow delete: if isOwner(negocioId);
+      }
+
+
+      // ───────────────────────────────────────────────────────────
+      // RESUMENES MENSUALES (informes)
+      // ───────────────────────────────────────────────────────────
+      match /resumenes/{mesId} {
+        allow read:  if isOwner(negocioId);
+        allow write: if isOwner(negocioId);
+      }
+
+    } // fin /negocios/{negocioId}
+
+
+    // ─────────────────────────────────────────────────────────────
+    // CATCH-ALL — todo lo demas denegado
+    // ─────────────────────────────────────────────────────────────
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+  }
+}

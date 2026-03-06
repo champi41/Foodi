@@ -25,13 +25,70 @@ const EMPTY_GRUPO = () => ({
   tipo: "single",
   requerido: true,
   limite: null,
-  maxSeleccion: null,
-  opciones: [{ nombre: "", extra: 0 }],
+  incluidasGratis: null,
+  opciones: [],
 });
+
+// Normaliza grupo legacy (sin ingredienteId) al formato nuevo para el editor
+const normalizeGrupoForEditor = (g) => {
+  const isLegacy =
+    g.opciones?.length > 0 && g.opciones[0].ingredienteId === undefined;
+  let limite = g.limite ?? null;
+  let incluidasGratis = g.incluidasGratis ?? null;
+  if (isLegacy) {
+    if (g.maxSeleccion != null) {
+      limite = g.maxSeleccion;
+      incluidasGratis = null;
+    } else if (g.limite != null) {
+      incluidasGratis = g.limite;
+      limite = null;
+    }
+  }
+  const opciones = (g.opciones || []).map((op) => ({
+    ingredienteId: op.ingredienteId ?? null,
+    nombre: op.nombre ?? "",
+    extra: op.extra ?? 0,
+    incluido: op.incluido ?? false,
+  }));
+  return {
+    ...g,
+    limite,
+    incluidasGratis,
+    opciones,
+  };
+};
+
+// Precio mínimo visible "Desde $X": base + suma del extra más bajo de cada grupo requerido (opciones no incluidas)
+export const getPrecioDesde = (precioBase, grupos = []) => {
+  let extra = 0;
+  const req = grupos.filter((g) => g.grupo?.trim() && g.requerido);
+  for (const g of req) {
+    const opciones = g.opciones || [];
+    if (g.tipo === "single") {
+      const noIncluidas = opciones.filter((op) => !op.incluido && op.nombre?.trim());
+      if (noIncluidas.length) {
+        extra += Math.min(...noIncluidas.map((op) => op.extra ?? 0));
+      }
+    } else if (g.tipo === "multiple") {
+      if (g.incluidasGratis != null) {
+        // N incluidas: no sumamos al "desde" (las primeras N gratis)
+        continue;
+      }
+      if (g.limite != null) {
+        const noIncluidas = opciones.filter((op) => !op.incluido && op.nombre?.trim());
+        if (noIncluidas.length) {
+          extra += Math.min(...noIncluidas.map((op) => op.extra ?? 0));
+        }
+      }
+    }
+  }
+  return (precioBase || 0) + extra;
+};
 
 export const ProductModal = ({
   product,
   categories,
+  ingredientes = [],
   onSave,
   onClose,
   uploading,
@@ -56,18 +113,20 @@ export const ProductModal = ({
   );
 
   const [grupos, setGrupos] = useState(
-    isEditing && product.grupos?.length ? product.grupos : [],
+    isEditing && product.grupos?.length
+      ? product.grupos.map(normalizeGrupoForEditor)
+      : [],
   );
   const [personalizable, setPersonalizable] = useState(
     isEditing ? product.personalizable || false : false,
   );
   const [ingBase, setIngBase] = useState(
-    isEditing && product.ingBase?.length ? [...product.ingBase, ""] : [""],
+    isEditing && product.ingBase?.length ? product.ingBase : [],
   );
   const [ingInter, setIngInter] = useState(
     isEditing && product.ingInter?.length
-      ? [...product.ingInter, { nombre: "", precio: 0 }]
-      : [{ nombre: "", precio: 0 }],
+      ? product.ingInter.filter((x) => x.nombre?.trim())
+      : [],
   );
 
   const set = (field, val) => setForm((f) => ({ ...f, [field]: val }));
@@ -85,19 +144,29 @@ export const ProductModal = ({
   const handleGrupoRemove = (i) =>
     setGrupos(grupos.filter((_, gi) => gi !== i));
 
-  const handleDynamicBase = (i, val) => {
-    const list = [...ingBase];
-    list[i] = val;
-    if (i === ingBase.length - 1 && val !== "") list.push("");
-    setIngBase(list);
+  const toggleIngBase = (nombre) => {
+    if (ingBase.includes(nombre)) {
+      setIngBase(ingBase.filter((n) => n !== nombre));
+    } else {
+      setIngBase([...ingBase, nombre]);
+    }
   };
 
-  const handleDynamicInter = (i, field, val) => {
-    const list = [...ingInter];
-    list[i] = { ...list[i], [field]: val };
-    if (i === ingInter.length - 1 && list[i].nombre !== "")
-      list.push({ nombre: "", precio: 0 });
-    setIngInter(list);
+  const toggleIngInter = (ing) => {
+    const exists = ingInter.some((e) => e.nombre === ing.nombre);
+    if (exists) {
+      setIngInter(ingInter.filter((e) => e.nombre !== ing.nombre));
+    } else {
+      setIngInter([...ingInter, { nombre: ing.nombre, precio: ing.extra ?? 0 }]);
+    }
+  };
+
+  const updateIngInterPrecio = (nombre, precio) => {
+    setIngInter(
+      ingInter.map((e) =>
+        e.nombre === nombre ? { ...e, precio: Number(precio) || 0 } : e,
+      ),
+    );
   };
 
   const handleSubmit = (e) => {
@@ -108,39 +177,48 @@ export const ProductModal = ({
     if (form.categorias.length === 0)
       return alert("Selecciona al menos una categoría");
 
-    // ── NUEVA VALIDACIÓN PARA GRUPOS MÚLTIPLES ──
+    // Validación: múltiple debe tener limite o incluidasGratis
     for (const g of grupos) {
-      // Solo revisamos los grupos que el usuario realmente llenó
       if (g.grupo.trim() !== "" && g.tipo === "multiple") {
-        const tieneMaximo =
-          g.maxSeleccion !== null && g.maxSeleccion !== undefined;
-        const tieneLimite = g.limite !== null && g.limite !== undefined;
-
-        // Si no tiene ninguna de las dos opciones, detenemos el guardado
-        if (!tieneMaximo && !tieneLimite) {
+        const tieneLimite = g.limite != null;
+        const tieneIncluidas = g.incluidasGratis != null;
+        if (!tieneLimite && !tieneIncluidas) {
           return alert(
-            `Error en el grupo "${g.grupo}": Al elegir "Elige varios", debes seleccionar "Limitar cuántas puede elegir" o "Primeras N incluidas".`,
+            `Error en el grupo "${g.grupo}": En "Elige varios" debes elegir "Límite de cantidad" o "N incluidas gratis".`,
           );
         }
       }
     }
 
-    // ── SI PASA LA VALIDACIÓN, LIMPIAMOS Y GUARDAMOS ──
     const cleanGrupos = grupos
       .filter((g) => g.grupo.trim() !== "")
-      .map((g) => ({
-        ...g,
-        opciones: g.opciones.filter((op) => op.nombre.trim() !== ""),
-      }));
+      .map((g) => {
+        const opciones = g.opciones
+          .filter((op) => op.nombre.trim() !== "")
+          .map((op) => ({
+            ingredienteId: op.ingredienteId ?? null,
+            nombre: op.nombre.trim(),
+            extra: Number(op.extra) || 0,
+            incluido: op.incluido ?? false,
+          }));
+        return {
+          grupo: g.grupo.trim(),
+          tipo: g.tipo,
+          requerido: g.requerido,
+          limite: g.limite ?? null,
+          incluidasGratis: g.incluidasGratis ?? null,
+          opciones,
+        };
+      });
 
     onSave({
       ...form,
       precio_base: Number(form.precio_base),
       grupos: cleanGrupos,
       personalizable,
-      ingBase: personalizable ? ingBase.filter((x) => x.trim() !== "") : [],
+      ingBase: personalizable ? ingBase.filter((n) => n && n.trim() !== "") : [],
       ingInter: personalizable
-        ? ingInter.filter((x) => x.nombre.trim() !== "")
+        ? ingInter.filter((x) => x.nombre?.trim() !== "")
         : [],
     });
   };
@@ -321,6 +399,7 @@ export const ProductModal = ({
                 index={gi}
                 onChange={handleGrupoChange}
                 onRemove={handleGrupoRemove}
+                ingredientes={ingredientes}
               />
             ))}
             <button
@@ -353,49 +432,122 @@ export const ProductModal = ({
                 <div className="field-group">
                   <label>Ingredientes que se pueden quitar</label>
                   <span className="field-hint">
-                    Ej: lechuga, tomate, cebolla
+                    Marca los que el cliente podrá desmarcar al pedir
                   </span>
-                  {ingBase.map((b, i) => (
-                    <input
-                      key={i}
-                      value={b}
-                      onChange={(e) => handleDynamicBase(i, e.target.value)}
-                      placeholder="Ej: Cebolla"
-                    />
-                  ))}
+                  {ingredientes.length === 0 ? (
+                    <p className="field-hint">
+                      Crea ingredientes en el apartado Ingredientes para listarlos aquí
+                    </p>
+                  ) : (
+                    <div className="personalizable-catalogo">
+                      {Object.entries(
+                        ingredientes.reduce((acc, ing) => {
+                          const c = ing.categoria || "Sin categoría";
+                          if (!acc[c]) acc[c] = [];
+                          acc[c].push(ing);
+                          return acc;
+                        }, {}),
+                      ).map(([cat, list]) => (
+                        <div key={cat} className="personalizable-cat">
+                          <span className="personalizable-cat-name">{cat}</span>
+                          <div className="personalizable-chips">
+                            {list.map((ing) => (
+                              <label
+                                key={ing.id}
+                                className={`grupo-catalogo-chip ${ingBase.includes(ing.nombre) ? "grupo-catalogo-chip--on" : ""}`}
+                              >
+                                <input
+                                  type="checkbox"
+                                  checked={ingBase.includes(ing.nombre)}
+                                  onChange={() => toggleIngBase(ing.nombre)}
+                                />
+                                <span>{ing.nombre}</span>
+                              </label>
+                            ))}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
                 <div className="field-group">
                   <label>Ingredientes extras (con costo adicional)</label>
                   <span className="field-hint">
-                    Ej: tocino +$1000, queso extra +$800
+                    Marca los que el cliente puede agregar pagando el extra
                   </span>
-                  {ingInter.map((n, i) => (
-                    <div key={i} className="opcion-row">
-                      <input
-                        placeholder="Ej: Tocino"
-                        value={n.nombre}
-                        onChange={(e) =>
-                          handleDynamicInter(i, "nombre", e.target.value)
-                        }
-                      />
-                      <div className="opcion-precio-wrap">
-                        <span className="precio-prefix">$</span>
-                        <input
-                          type="number"
-                          min="0"
-                          placeholder="0"
-                          value={n.precio > 0 ? n.precio : ""}
-                          onChange={(e) =>
-                            handleDynamicInter(
-                              i,
-                              "precio",
-                              Number(e.target.value),
-                            )
-                          }
-                        />
+                  {ingredientes.length === 0 ? (
+                    <p className="field-hint">
+                      Crea ingredientes en el apartado Ingredientes
+                    </p>
+                  ) : (
+                    <>
+                      <div className="personalizable-catalogo">
+                        {Object.entries(
+                          ingredientes.reduce((acc, ing) => {
+                            const c = ing.categoria || "Sin categoría";
+                            if (!acc[c]) acc[c] = [];
+                            acc[c].push(ing);
+                            return acc;
+                          }, {}),
+                        ).map(([cat, list]) => (
+                          <div key={cat} className="personalizable-cat">
+                            <span className="personalizable-cat-name">{cat}</span>
+                            <div className="personalizable-chips">
+                              {list.map((ing) => {
+                                const selected = ingInter.some(
+                                  (e) => e.nombre === ing.nombre,
+                                );
+                                return (
+                                  <label
+                                    key={ing.id}
+                                    className={`grupo-catalogo-chip ${selected ? "grupo-catalogo-chip--on" : ""}`}
+                                  >
+                                    <input
+                                      type="checkbox"
+                                      checked={selected}
+                                      onChange={() => toggleIngInter(ing)}
+                                    />
+                                    <span>{ing.nombre}</span>
+                                    {ing.extra > 0 && (
+                                      <span className="grupo-catalogo-extra">
+                                        +${ing.extra}
+                                      </span>
+                                    )}
+                                  </label>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        ))}
                       </div>
-                    </div>
-                  ))}
+                      {ingInter.length > 0 && (
+                        <div className="personalizable-extras-list">
+                          <span className="personalizable-extras-label">
+                            Precio por extra (editable):
+                          </span>
+                          {ingInter.map((e) => (
+                            <div key={e.nombre} className="opcion-row opcion-row--compact">
+                              <span className="opcion-nombre-fijo">{e.nombre}</span>
+                              <div className="opcion-precio-wrap">
+                                <span className="precio-prefix">$</span>
+                                <input
+                                  type="number"
+                                  min="0"
+                                  value={e.precio > 0 ? e.precio : ""}
+                                  onChange={(ev) =>
+                                    updateIngInterPrecio(
+                                      e.nombre,
+                                      ev.target.value,
+                                    )
+                                  }
+                                />
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </>
+                  )}
                 </div>
               </div>
             )}

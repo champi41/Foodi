@@ -11,7 +11,7 @@ import {
   orderBy,
 } from "firebase/firestore";
 import { db, auth } from "../../api/firebase";
-import { ProductModal, getCategoriasArray } from "./Productmodal.admin";
+import { ProductModal, getCategoriasArray, getPrecioDesde } from "./Productmodal.admin";
 import { CatModal } from "./CatModal";
 import "./PlatillosView.css";
 
@@ -21,6 +21,7 @@ const UPLOAD_PRESET = import.meta.env.VITE_CLOUDINARY_UPLOAD_PRESET;
 export const PlatillosView = ({ businessId }) => {
   const [products, setProducts] = useState([]);
   const [categories, setCategories] = useState([]);
+  const [ingredientes, setIngredientes] = useState([]);
   const [loading, setLoading] = useState(true);
   const [filterCat, setFilterCat] = useState("all");
   const [showProductModal, setShowProductModal] = useState(false);
@@ -37,17 +38,19 @@ export const PlatillosView = ({ businessId }) => {
   const fetchData = async () => {
     setLoading(true);
     try {
-      const cS = await getDocs(
-        query(
-          collection(db, `negocios/${tenantId}/categorias`),
-          orderBy("nombre"),
+      const [cS, pS, iS] = await Promise.all([
+        getDocs(
+          query(
+            collection(db, `negocios/${tenantId}/categorias`),
+            orderBy("nombre"),
+          ),
         ),
-      );
+        getDocs(collection(db, `negocios/${tenantId}/productos`)),
+        getDocs(collection(db, `negocios/${tenantId}/ingredientes`)),
+      ]);
       setCategories(cS.docs.map((d) => ({ id: d.id, ...d.data() })));
-      const pS = await getDocs(
-        collection(db, `negocios/${tenantId}/productos`),
-      );
       setProducts(pS.docs.map((d) => ({ id: d.id, ...d.data() })));
+      setIngredientes(iS.docs.map((d) => ({ id: d.id, ...d.data() })));
     } catch (e) {
       console.error(e);
     }
@@ -255,7 +258,9 @@ export const PlatillosView = ({ businessId }) => {
                 <div className="pv-card-top">
                   <h4 className="pv-card-nombre">{p.nombre}</h4>
                   <span className="pv-card-precio">
-                    ${p.precio_base?.toLocaleString("es-CL")}
+                    {p.grupos?.some((g) => g.grupo?.trim() && g.requerido)
+                      ? `Desde $${getPrecioDesde(p.precio_base, p.grupos).toLocaleString("es-CL")}`
+                      : `$${(p.precio_base ?? 0).toLocaleString("es-CL")}`}
                   </span>
                 </div>
                 <p className="pv-card-cat">{catNames(p)}</p>
@@ -266,9 +271,11 @@ export const PlatillosView = ({ businessId }) => {
                       <span key={i} className="pv-tag">
                         {g.grupo}
                         {g.tipo === "multiple"
-                          ? g.maxSeleccion
-                            ? ` · máx. ${g.maxSeleccion}`
-                            : " · varios"
+                          ? g.limite != null
+                            ? ` · máx. ${g.limite}`
+                            : g.incluidasGratis != null
+                              ? ` · ${g.incluidasGratis} incl.`
+                              : " · varios"
                           : " · uno"}
                       </span>
                     ))}
@@ -321,6 +328,7 @@ export const PlatillosView = ({ businessId }) => {
         <ProductModal
           product={editingProduct}
           categories={categories}
+          ingredientes={ingredientes}
           onSave={handleSaveProduct}
           onClose={() => {
             setShowProductModal(false);

@@ -331,6 +331,47 @@
   background: var(--mp-surface, rgba(255, 255, 255, 0.06));
 }
 
+/* ── CÁLCULO ENVÍO POR DISTANCIA ── */
+.cv-delivery-calc {
+  margin-top: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.cv-delivery-calc-btn {
+  padding: 10px 16px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--mp-text, #f0ece4);
+  background: var(--mp-accent-dim, rgba(255, 179, 71, 0.15));
+  border: 1px solid var(--mp-accent, rgba(255, 179, 71, 0.35));
+  border-radius: 12px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.cv-delivery-calc-btn:hover:not(:disabled) {
+  background: var(--mp-accent-dim, rgba(255, 179, 71, 0.25));
+}
+.cv-delivery-calc-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+.cv-delivery-feedback {
+  font-size: 13px;
+  margin: 0;
+  padding: 8px 12px;
+  border-radius: 10px;
+}
+.cv-delivery-feedback--success {
+  color: #86efac;
+  background: rgba(34, 197, 94, 0.12);
+}
+.cv-delivery-feedback--out,
+.cv-delivery-feedback--error {
+  color: #fca5a5;
+  background: rgba(239, 68, 68, 0.1);
+}
+
 /* ── PAGOS ── */
 .cv-pagos {
   display: flex;

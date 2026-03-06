@@ -1,0 +1,370 @@
+.informes-view {
+  padding: 20px;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.informes-loading,
+.informes-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 280px;
+  color: #6b7280;
+  font-size: 15px;
+}
+
+.informes-empty p {
+  margin: 0;
+}
+
+.informes-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+.informes-mes-selector {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.informes-mes-btn {
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid #e5e7eb;
+  background: white;
+  border-radius: 10px;
+  font-size: 18px;
+  cursor: pointer;
+  color: #374151;
+}
+
+.informes-mes-btn:hover:not(:disabled) {
+  background: #f9fafb;
+  border-color: #d1d5db;
+}
+
+.informes-mes-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.informes-mes-label {
+  font-size: 18px;
+  font-weight: 700;
+  color: #111;
+  min-width: 160px;
+  text-align: center;
+}
+
+.informes-acciones {
+  display: flex;
+  gap: 10px;
+}
+
+.informes-btn {
+  padding: 10px 18px;
+  border-radius: 10px;
+  font-size: 14px;
+  font-weight: 600;
+  border: none;
+  cursor: pointer;
+}
+
+.informes-btn-pdf {
+  background: #111;
+  color: white;
+}
+
+.informes-btn-pdf:hover {
+  background: #333;
+}
+
+.informes-btn-excel {
+  background: #0f6b2e;
+  color: white;
+}
+
+.informes-btn-excel:hover {
+  background: #0d5a27;
+}
+
+/* ── KPI ── */
+.kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+.kpi-card {
+  background: white;
+  border-radius: 12px;
+  padding: 20px;
+  border: 1px solid #e5e7eb;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.kpi-icon {
+  color: #6b7280;
+}
+
+.kpi-valor {
+  font-size: 24px;
+  font-weight: 700;
+  color: #111;
+}
+
+.kpi-label {
+  font-size: 13px;
+  color: #6b7280;
+}
+
+.kpi-desglose {
+  font-size: 12px;
+  color: #6b7280;
+  margin-top: 2px;
+}
+
+/* ── Secciones ── */
+.informes-seccion {
+  background: white;
+  border-radius: 12px;
+  padding: 20px;
+  border: 1px solid #e5e7eb;
+  margin-bottom: 24px;
+}
+
+.informes-seccion-titulo {
+  font-size: 16px;
+  font-weight: 700;
+  color: #111;
+  margin: 0 0 16px 0;
+}
+
+.informes-sin-productos {
+  color: #6b7280;
+  font-size: 14px;
+  margin: 0;
+}
+
+/* ── Gráfico ya tiene ResponsiveContainer ── */
+
+/* ── Dos tarjetas ── */
+.informes-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+@media (max-width: 640px) {
+  .informes-row {
+    grid-template-columns: 1fr;
+  }
+}
+
+.informes-card {
+  background: white;
+  border-radius: 12px;
+  padding: 20px;
+  border: 1px solid #e5e7eb;
+}
+
+.informes-card-titulo {
+  font-size: 15px;
+  font-weight: 700;
+  color: #111;
+  margin: 0 0 16px 0;
+}
+
+.informes-metodos {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.informes-metodo-fila {
+  display: grid;
+  grid-template-columns: 100px 1fr 80px;
+  align-items: center;
+  gap: 10px;
+  font-size: 13px;
+}
+
+.informes-metodo-label {
+  color: #374151;
+}
+
+.informes-metodo-barra-wrap {
+  height: 20px;
+  background: #f3f4f6;
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+.informes-metodo-barra {
+  height: 100%;
+  background: #3b82f6;
+  border-radius: 6px;
+  min-width: 2px;
+  transition: width 0.2s;
+}
+
+.informes-metodo-valor {
+  text-align: right;
+  font-weight: 600;
+  color: #111;
+}
+
+.informes-entrega-stats {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.informes-entrega-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  color: #374151;
+}
+
+.informes-entrega-icon {
+  font-size: 18px;
+}
+
+.informes-entrega-barra {
+  display: flex;
+  height: 24px;
+  border-radius: 8px;
+  overflow: hidden;
+  background: #f3f4f6;
+}
+
+.informes-entrega-barra-retiro {
+  background: #3b82f6;
+  transition: width 0.2s;
+}
+
+.informes-entrega-barra-delivery {
+  background: #10b981;
+  transition: width 0.2s;
+}
+
+/* ── Tabla ── */
+.informes-tabla-wrap {
+  overflow-x: auto;
+}
+
+.informes-tabla {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.informes-tabla th {
+  text-align: left;
+  padding: 10px 12px;
+  background: #f9fafb;
+  border-bottom: 1px solid #e5e7eb;
+  font-weight: 600;
+  color: #374151;
+}
+
+.informes-tabla td {
+  padding: 10px 12px;
+  border-bottom: 1px solid #f3f4f6;
+  color: #111;
+}
+
+.informes-tabla tr:last-child td {
+  border-bottom: none;
+}
+
+.informes-tabla .rank {
+  color: #9ca3af;
+  font-weight: 700;
+  width: 32px;
+}
+
+/* ── IMPRESIÓN PDF ── */
+@media print {
+  /* Ocultar todo el documento y mostrar solo el área del informe */
+  body * {
+    visibility: hidden !important;
+  }
+
+  #informes-print-area,
+  #informes-print-area * {
+    visibility: visible !important;
+  }
+
+  #informes-print-area {
+    position: fixed !important;
+    left: 0 !important;
+    top: 0 !important;
+    width: 100% !important;
+    max-width: none !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    background: white !important;
+    overflow: visible !important;
+    box-shadow: none !important;
+  }
+
+  .admin-sidebar,
+  .admin-header,
+  .admin-topbar-mobile,
+  .admin-bottomnav,
+  .informes-acciones,
+  .informes-mes-selector {
+    display: none !important;
+  }
+
+  .informes-header {
+    display: block !important;
+    margin-bottom: 16px !important;
+  }
+
+  .informes-mes-label {
+    display: block !important;
+    font-size: 20px !important;
+  }
+
+  /* Asegurar que el gráfico y las tablas se impriman */
+  .informes-view section,
+  .informes-view .kpi-grid,
+  .informes-view .informes-row,
+  .informes-view .informes-card {
+    break-inside: avoid;
+  }
+
+  @page {
+    size: A4;
+    margin: 15mm;
+  }
+}
+
+.mejor-dia-texto {
+  margin-top: 10px;
+  font-size: 13px;
+  color: #374151;
+  background: #f9fafb;
+  border-radius: 8px;
+  padding: 10px 14px;
+  border-left: 3px solid #3b82f6;
+}
