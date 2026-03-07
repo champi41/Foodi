@@ -138,7 +138,13 @@ export const ConfigView = ({ businessId }) => {
       const coordenadasLocal =
         privado.coordenadasLocal ?? deliveryConfigPublico?.coordenadasLocal ?? null;
       const deliveryConfig = deliveryConfigPublico
-        ? { ...deliveryConfigPublico, coordenadasLocal }
+        ? {
+            ...deliveryConfigPublico,
+            coordenadasLocal,
+            modo: deliveryConfigPublico.modo || "rangos",
+            precioBaseDelivery: deliveryConfigPublico.precioBaseDelivery ?? 0,
+            precioPorKm: deliveryConfigPublico.precioPorKm ?? 0,
+          }
         : null;
 
       setConfig({
@@ -184,7 +190,7 @@ export const ConfigView = ({ businessId }) => {
     e.preventDefault();
     setSaving(true);
     try {
-      if (config.deliveryConfig) {
+      if (config.deliveryConfig && config.deliveryConfig.modo !== "porKm") {
         const rangos = [...(config.deliveryConfig.rangos || [])]
           .filter(
             (r) =>
@@ -216,12 +222,29 @@ export const ConfigView = ({ businessId }) => {
         metodosPago: config.metodosPago,
       };
       if (config.deliveryConfig) {
-        payloadPublico.deliveryConfig = {
-          direccionLocal: config.deliveryConfig.direccionLocal || "",
-          coordenadasLocal: config.deliveryConfig.coordenadasLocal || null,
-          rangos: config.deliveryConfig.rangos || [],
-          kmMaximo: Number(config.deliveryConfig.kmMaximo) || 0,
-        };
+        if (config.deliveryConfig.modo === "porKm") {
+          const { coordenadasLocal, rangos, ...rest } =
+            config.deliveryConfig;
+          payloadPublico.deliveryConfig = {
+            ...rest,
+            modo: "porKm",
+            kmMaximo: Number(config.deliveryConfig.kmMaximo) || 0,
+            precioBaseDelivery: Number(config.deliveryConfig.precioBaseDelivery) || 0,
+            precioPorKm: Number(config.deliveryConfig.precioPorKm) || 0,
+            direccionLocal: config.deliveryConfig.direccionLocal || "",
+            direccionVerificada: config.deliveryConfig.direccionVerificada || "",
+          };
+        } else {
+          const { coordenadasLocal, ...resto } = config.deliveryConfig;
+          payloadPublico.deliveryConfig = {
+            direccionLocal: config.deliveryConfig.direccionLocal || "",
+            rangos: config.deliveryConfig.rangos || [],
+            kmMaximo: Number(config.deliveryConfig.kmMaximo) || 0,
+            modo: "rangos",
+            ...resto,
+          };
+          delete payloadPublico.deliveryConfig.coordenadasLocal;
+        }
       }
       payloadPublico.datosTransferencia = {
         nombre: config.datosBancarios.nombre || "",
@@ -294,6 +317,9 @@ export const ConfigView = ({ businessId }) => {
     coordenadasLocal: null,
     rangos: [],
     kmMaximo: 10,
+    modo: "rangos",
+    precioBaseDelivery: 0,
+    precioPorKm: 0,
   };
 
   const setDeliveryConfig = (field, value) =>
@@ -480,6 +506,30 @@ export const ConfigView = ({ businessId }) => {
         {deliveryActivo && (
           <section className="config-section">
             <h2>Delivery por distancia</h2>
+
+            <div className="delivery-modo-selector">
+              <button
+                type="button"
+                className={`delivery-modo-btn ${(deliveryConfig?.modo || "rangos") === "rangos" ? "activo" : ""}`}
+                onClick={() => setDeliveryConfig("modo", "rangos")}
+              >
+                <span className="modo-icon">📍</span>
+                <span className="modo-titulo">Por Zonas</span>
+                <span className="modo-desc">Define rangos con mapa visual</span>
+              </button>
+              <button
+                type="button"
+                className={`delivery-modo-btn ${deliveryConfig?.modo === "porKm" ? "activo" : ""}`}
+                onClick={() => setDeliveryConfig("modo", "porKm")}
+              >
+                <span className="modo-icon">📏</span>
+                <span className="modo-titulo">Por Kilómetro</span>
+                <span className="modo-desc">Precio automático según distancia</span>
+              </button>
+            </div>
+
+            {(deliveryConfig?.modo || "rangos") === "rangos" ? (
+              <>
             <p className="config-hint">
               Configura la dirección del local y rangos de km con su precio. El
               costo se calcula según la distancia al cliente (Google Maps).
@@ -642,6 +692,125 @@ export const ConfigView = ({ businessId }) => {
                   )}
               </div>
             </div>
+              </>
+            ) : (
+              <div className="delivery-porkm-form">
+                <div className="config-row">
+                  <label>Dirección del local</label>
+                  <div className="delivery-dir-row">
+                    <input
+                      type="text"
+                      placeholder="Ej: Emilio Luppi 435, Frutillar, Chile"
+                      value={deliveryConfig.direccionLocal}
+                      onChange={(e) => {
+                        setDeliveryConfig("direccionLocal", e.target.value);
+                        setGeocodeStatus(null);
+                      }}
+                    />
+                    <button
+                      type="button"
+                      className="btn-verificar-ubicacion"
+                      onClick={handleVerificarUbicacion}
+                      disabled={
+                        geocodeLoading ||
+                        !deliveryConfig.direccionLocal?.trim() ||
+                        (deliveryConfig.coordenadasLocal &&
+                          deliveryConfig.direccionLocal?.trim() === direccionVerificada?.trim())
+                      }
+                    >
+                      {geocodeLoading ? "Verificando…" : "Verificar ubicación"}
+                    </button>
+                  </div>
+                  {geocodeStatus?.ok && (
+                    <p className="delivery-geocode-ok">
+                      ✓ {geocodeStatus.formatted}
+                    </p>
+                  )}
+                  {geocodeStatus && !geocodeStatus.ok && !geocodeLoading && (
+                    <p className="delivery-geocode-error">
+                      No se encontró la dirección. Intenta con más detalle.
+                    </p>
+                  )}
+                </div>
+
+                <div className="config-row">
+                  <label>Distancia máxima de cobertura (km)</label>
+                  <input
+                    type="number"
+                    min="0.1"
+                    step="0.1"
+                    value={deliveryConfig.kmMaximo}
+                    onChange={(e) => {
+                      const raw = String(e.target.value).replace(",", ".");
+                      const num = raw === "" ? 0 : Number(raw);
+                      setDeliveryConfig("kmMaximo", Number.isFinite(num) ? num : 0);
+                    }}
+                  />
+                  <p className="config-hint">
+                    Pedidos fuera de este rango serán rechazados automáticamente.
+                  </p>
+                </div>
+
+                <div className="config-row">
+                  <label>Precio base de envío ($)</label>
+                  <input
+                    type="number"
+                    min="0"
+                    value={deliveryConfig.precioBaseDelivery ?? ""}
+                    onChange={(e) =>
+                      setDeliveryConfig(
+                        "precioBaseDelivery",
+                        e.target.value === "" ? 0 : Number(e.target.value),
+                      )
+                    }
+                    placeholder="0 si no hay cargo fijo"
+                  />
+                  <p className="config-hint">
+                    Monto fijo que se cobra independiente de la distancia. Puede ser $0.
+                  </p>
+                </div>
+
+                <div className="config-row">
+                  <label>Precio por kilómetro ($)</label>
+                  <input
+                    type="number"
+                    min="0"
+                    value={deliveryConfig.precioPorKm ?? ""}
+                    onChange={(e) =>
+                      setDeliveryConfig(
+                        "precioPorKm",
+                        e.target.value === "" ? 0 : Number(e.target.value),
+                      )
+                    }
+                    placeholder="ej: 400"
+                  />
+                </div>
+
+                {Number(deliveryConfig.precioPorKm) > 0 && (
+                  <div className="delivery-porkm-preview">
+                    <p className="preview-titulo">Vista previa de precios</p>
+                    {[1, 2, 3, 5, 8]
+                      .filter((km) => km <= (Number(deliveryConfig.kmMaximo) || 99))
+                      .map((km) => (
+                        <div key={km} className="preview-row">
+                          <span>{km} km</span>
+                          <span>
+                            $
+                            {(
+                              (Number(deliveryConfig.precioBaseDelivery) || 0) +
+                              km * (Number(deliveryConfig.precioPorKm) || 0)
+                            ).toLocaleString("es-CL")}
+                          </span>
+                        </div>
+                      ))}
+                    <p className="preview-formula">
+                      Fórmula: ${Number(deliveryConfig.precioBaseDelivery) || 0} base + km × $
+                      {Number(deliveryConfig.precioPorKm) || 0}
+                    </p>
+                  </div>
+                )}
+              </div>
+            )}
           </section>
         )}
 

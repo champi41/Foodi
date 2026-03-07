@@ -56,14 +56,18 @@ export const distanciaLineaRectaKm = (origen, destino) => {
 };
 
 /**
- * Calcula distancia en km entre dos puntos con Routes API (por carretera)
+ * Calcula distancia en km entre dos puntos con Routes API (por carretera).
+ * Si la API falla (red, cuota, etc.), usa distancia en línea recta como fallback.
  * @param {{ lat: number, lng: number }} origen
  * @param {{ lat: number, lng: number }} destino
- * @returns {Promise<number | null>} km o null si falla
+ * @returns {Promise<number>} km (siempre un número: API o fallback en línea recta)
  */
 export const calcularDistanciaKm = async (origen, destino) => {
+  const fallback = () => distanciaLineaRectaKm(origen, destino);
+
   const key = import.meta.env.VITE_GOOGLE_MAPS_KEY;
-  if (!key) return null;
+  if (!key) return fallback();
+
   const url = "https://routes.googleapis.com/directions/v2:computeRoutes";
   const body = {
     origin: {
@@ -79,25 +83,29 @@ export const calcularDistanciaKm = async (origen, destino) => {
     travelMode: "DRIVE",
     routingPreference: "TRAFFIC_UNAWARE",
   };
-  const res = await fetch(url, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "X-Goog-Api-Key": key,
-      "X-Goog-FieldMask": "routes.distanceMeters,routes.legs.distanceMeters",
-    },
-    body: JSON.stringify(body),
-  });
-  const data = await res.json();
-  if (!data.routes?.length) return null;
-  const route = data.routes[0];
-  // Routes API v2: puede venir en route.distanceMeters o en route.legs[].distanceMeters
-  let meters = route.distanceMeters;
-  if (meters == null && route.legs?.length) {
-    meters = route.legs.reduce((sum, leg) => sum + (leg.distanceMeters || 0), 0);
+
+  try {
+    const res = await fetch(url, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "X-Goog-Api-Key": key,
+        "X-Goog-FieldMask": "routes.distanceMeters,routes.legs.distanceMeters",
+      },
+      body: JSON.stringify(body),
+    });
+    const data = await res.json();
+    if (!res.ok || !data.routes?.length) return fallback();
+    const route = data.routes[0];
+    let meters = route.distanceMeters;
+    if (meters == null && route.legs?.length) {
+      meters = route.legs.reduce((sum, leg) => sum + (leg.distanceMeters || 0), 0);
+    }
+    if (meters == null || typeof meters !== "number") return fallback();
+    return Math.round(meters) / 1000;
+  } catch {
+    return fallback();
   }
-  if (meters == null || typeof meters !== "number") return null;
-  return Math.round(meters) / 1000;
 };
 
 /**
@@ -118,4 +126,15 @@ export const encontrarRango = (km, rangos, kmMaximo) => {
       return !Number.isNaN(desde) && !Number.isNaN(hasta) && kmNum >= desde && kmNum < hasta;
     }) ?? null
   );
+};
+
+/**
+ * Precio de envío en modo "por km": base + (km × precioPorKm).
+ * @param {number} km - Distancia en km
+ * @param {number} precioBase - Cargo fijo
+ * @param {number} precioPorKm - Cargo por kilómetro
+ * @returns {number}
+ */
+export const calcularPrecioPorKm = (km, precioBase, precioPorKm) => {
+  return Math.round((precioBase || 0) + (km * (precioPorKm || 0)));
 };

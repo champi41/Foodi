@@ -1,30 +1,62 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { addDoc, collection, serverTimestamp } from "firebase/firestore";
 import { db } from "../../api/firebase";
 import {
   geocodificar,
   distanciaLineaRectaKm,
+  calcularDistanciaKm,
   encontrarRango,
+  calcularPrecioPorKm,
 } from "../../utils/delivery";
 import "./CarritoView.css";
 import { ChevronLeft } from "lucide-react";
 
 const STORAGE_KEY = "mp_customer_data";
 
-// Lee los datos guardados del navegador, o devuelve vacío
-const loadCustomer = () => {
+// Resultado del cálculo de envío solo en memoria (se pierde al recargar la página)
+let sessionDeliveryResult = null;
+
+// Lee datos del navegador (cliente + tipo de entrega) y resultado de envío de esta sesión
+const loadStored = () => {
   try {
     const saved = localStorage.getItem(STORAGE_KEY);
-    return saved ? JSON.parse(saved) : { name: "", phone: "", address: "" };
+    const parsed = saved ? JSON.parse(saved) : {};
+    const deliveryResult =
+      sessionDeliveryResult &&
+      typeof sessionDeliveryResult.address === "string" &&
+      typeof sessionDeliveryResult.km === "number" &&
+      typeof sessionDeliveryResult.cost === "number"
+        ? sessionDeliveryResult
+        : null;
+    return {
+      name: parsed.name ?? "",
+      phone: parsed.phone ?? "",
+      address: parsed.address ?? "",
+      deliveryType: parsed.deliveryType ?? null,
+      deliveryResult,
+    };
   } catch {
-    return { name: "", phone: "", address: "" };
+    return {
+      name: "",
+      phone: "",
+      address: "",
+      deliveryType: null,
+      deliveryResult: null,
+    };
   }
 };
 
-// Guarda los datos del cliente en el navegador
-const saveCustomer = (data) => {
+// Guarda cliente y tipo de entrega en localStorage; resultado de envío solo en memoria (null = limpiar)
+const saveStored = (customerData, deliveryType, deliveryResult = null) => {
+  sessionDeliveryResult = deliveryResult;
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+    localStorage.setItem(
+      STORAGE_KEY,
+      JSON.stringify({
+        ...customerData,
+        deliveryType,
+      }),
+    );
   } catch {
     // localStorage puede estar bloqueado en modo privado — no es crítico
   }
@@ -41,20 +73,61 @@ export const CarritoView = ({
   const config = business || {};
   const tiposEntrega = config.tiposEntrega || { retiro: true, delivery: false };
   const deliveryConfig = config.deliveryConfig || null;
+  const modoDelivery = deliveryConfig?.modo || "rangos";
 
   const defaultEntrega = tiposEntrega.retiro ? "retiro" : "delivery";
 
-  // Precarga con datos guardados si existen
-  const [customer, setCustomer] = useState(loadCustomer);
-  const [deliveryType, setDeliveryType] = useState(defaultEntrega);
+  // Precarga con datos guardados (cliente + tipo de entrega)
+  const stored = loadStored();
+  const [customer, setCustomer] = useState({
+    name: stored.name,
+    phone: stored.phone,
+    address: stored.address,
+  });
+  const deliveryTypeInitial = (() => {
+    const saved = stored.deliveryType;
+    if (saved === "delivery" && tiposEntrega.delivery) return "delivery";
+    if (saved === "retiro" && tiposEntrega.retiro) return "retiro";
+    return defaultEntrega;
+  })();
+
+  const [deliveryType, setDeliveryType] = useState(deliveryTypeInitial);
+
+  const hasValidStoredResult =
+    deliveryTypeInitial === "delivery" &&
+    stored.deliveryResult &&
+    stored.deliveryResult.address !== undefined &&
+    (stored.address || "").trim().toLowerCase() ===
+      (stored.deliveryResult.address || "").trim().toLowerCase();
+
   const [paymentMethod, setPayment] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [orderId, setOrderId] = useState(null);
   const [savedTotal, setSavedTotal] = useState(0);
   const [savedPayment, setSavedPayment] = useState("");
-  const [deliveryStatus, setDeliveryStatus] = useState("idle");
-  const [deliveryKm, setDeliveryKm] = useState(null);
-  const [deliveryRango, setDeliveryRango] = useState(null);
+  const [deliveryStatus, setDeliveryStatus] = useState(
+    hasValidStoredResult ? "success" : "idle",
+  );
+  const [deliveryKm, setDeliveryKm] = useState(
+    hasValidStoredResult ? stored.deliveryResult.km : null,
+  );
+  const [deliveryRango, setDeliveryRango] = useState(
+    hasValidStoredResult && stored.deliveryResult.label
+      ? {
+          label: stored.deliveryResult.label,
+          precio: stored.deliveryResult.cost,
+        }
+      : null,
+  );
+  const [deliveryCost, setDeliveryCost] = useState(
+    hasValidStoredResult ? stored.deliveryResult.cost : 0,
+  );
+  // Dirección con la que se calculó (o restauró) el envío; si el usuario la cambia, se resetea
+  const lastCalculatedAddressRef = useRef(null);
+  const [deliveryErrorMsg, setDeliveryErrorMsg] = useState(null);
+  const [lastGeocodedAddress, setLastGeocodedAddress] = useState("");
+  const [cachedCoords, setCachedCoords] = useState(null);
+  const [geocodingIntentos, setGeocodingIntentos] = useState(0);
 
   // ── Cierre con animación ──
   const [closing, setClosing] = useState(false);
@@ -70,68 +143,160 @@ export const CarritoView = ({
     setTimeout(() => onEditItem(item), 400);
   };
 
-  // Actualiza el estado y persiste en localStorage al mismo tiempo
+  // Actualiza el estado y persiste en localStorage (mantiene resultado de envío si sigue siendo válido)
   const handleCustomerChange = (field, value) => {
     const updated = { ...customer, [field]: value };
     setCustomer(updated);
-    saveCustomer(updated);
+    const result =
+      field !== "address" &&
+      deliveryStatus === "success" &&
+      deliveryKm != null
+        ? {
+            address: customer.address.trim(),
+            km: deliveryKm,
+            cost: deliveryCost,
+            label: deliveryRango?.label ?? undefined,
+          }
+        : null;
+    saveStored(updated, deliveryType, result);
   };
 
-  // Resetear cálculo de envío si el cliente cambia la dirección después de calcular
+  // Marcar la dirección con la que se restauró el resultado (solo al montar)
+  useEffect(() => {
+    if (hasValidStoredResult && stored.deliveryResult?.address) {
+      lastCalculatedAddressRef.current = (stored.deliveryResult.address || "")
+        .trim()
+        .toLowerCase();
+    }
+  }, []);
+
+  // Resetear cálculo de envío solo si el cliente cambia la dirección respecto a la del último cálculo
   useEffect(() => {
     if (deliveryType !== "delivery" || !deliveryConfig) return;
+    const currentAddr = (customer.address || "").trim().toLowerCase();
+    if (!currentAddr) return;
+    const lastAddr = lastCalculatedAddressRef.current;
     if (
       deliveryStatus !== "idle" &&
       deliveryStatus !== "loading" &&
-      customer.address
+      lastAddr != null &&
+      currentAddr !== lastAddr
     ) {
       setDeliveryStatus("idle");
       setDeliveryKm(null);
       setDeliveryRango(null);
+      setDeliveryCost(0);
+      setDeliveryErrorMsg(null);
+      lastCalculatedAddressRef.current = null;
+      saveStored(customer, deliveryType, null);
     }
-  }, [customer.address]);
+  }, [customer.address, deliveryStatus, deliveryType, deliveryConfig]);
 
   const handleCalcularCostoEnvio = async () => {
-    if (!deliveryConfig?.coordenadasLocal || !customer.address?.trim()) return;
+    const coordsLocal =
+      deliveryConfig?.coordenadasLocal || config.privado?.coordenadasLocal;
+    if (!coordsLocal || !customer.address?.trim()) return;
     setDeliveryStatus("loading");
     setDeliveryKm(null);
     setDeliveryRango(null);
+    setDeliveryCost(0);
+    setDeliveryErrorMsg(null);
     try {
-      const coordsCliente = await geocodificar(customer.address.trim());
-      if (!coordsCliente) {
-        setDeliveryStatus("error");
-        return;
-      }
-      // Distancia en línea recta para que coincida con los círculos del mapa (Haversine)
-      const km = distanciaLineaRectaKm(
-        deliveryConfig.coordenadasLocal,
-        coordsCliente,
-      );
-      const rango = encontrarRango(
-        km,
-        deliveryConfig.rangos || [],
-        deliveryConfig.kmMaximo ?? 0,
-      );
-      if (rango) {
-        setDeliveryStatus("success");
-        setDeliveryKm(km);
-        setDeliveryRango(rango);
+      const addressTrim = customer.address.trim();
+      const addressKey = addressTrim.toLowerCase();
+
+      let coordsCliente = null;
+      if (
+        cachedCoords &&
+        addressKey === lastGeocodedAddress.trim().toLowerCase()
+      ) {
+        coordsCliente = cachedCoords;
       } else {
-        setDeliveryStatus("out_of_range");
+        coordsCliente = await geocodificar(addressTrim);
+        if (!coordsCliente) {
+          setGeocodingIntentos((prev) => prev + 1);
+          setDeliveryStatus("error");
+          return;
+        }
+        setCachedCoords(coordsCliente);
+        setLastGeocodedAddress(addressTrim);
+      }
+
+      if (modoDelivery === "porKm") {
+        const { kmMaximo, precioBaseDelivery, precioPorKm } =
+          deliveryConfig;
+
+        const km = await calcularDistanciaKm(
+          { lat: coordsLocal.lat, lng: coordsLocal.lng },
+          { lat: coordsCliente.lat, lng: coordsCliente.lng },
+        );
+
+        if (km == null) {
+          setDeliveryErrorMsg(
+            "No pudimos calcular la distancia. Verifica tu dirección e intenta de nuevo.",
+          );
+          setDeliveryStatus("error");
+          return;
+        }
+
         setDeliveryKm(km);
+
+        if (km > (Number(kmMaximo) ?? 0)) {
+          setDeliveryStatus("out_of_range");
+          return;
+        }
+
+        const precio = calcularPrecioPorKm(
+          km,
+          precioBaseDelivery,
+          precioPorKm,
+        );
+        setDeliveryCost(precio);
         setDeliveryRango(null);
+        setDeliveryStatus("success");
+        saveStored(customer, deliveryType, {
+          address: addressTrim,
+          km,
+          cost: precio,
+          label: undefined,
+        });
+        lastCalculatedAddressRef.current = addressTrim.trim().toLowerCase();
+      } else {
+        const km = distanciaLineaRectaKm(coordsLocal, coordsCliente);
+        setDeliveryKm(km);
+
+        const rango = encontrarRango(
+          km,
+          deliveryConfig.rangos || [],
+          deliveryConfig.kmMaximo ?? 0,
+        );
+        if (rango) {
+          setDeliveryStatus("success");
+          setDeliveryRango(rango);
+          setDeliveryCost(rango.precio);
+          saveStored(customer, deliveryType, {
+            address: addressTrim,
+            km,
+            cost: rango.precio,
+            label: rango.label,
+          });
+          lastCalculatedAddressRef.current = addressTrim.trim().toLowerCase();
+        } else {
+          setDeliveryStatus("out_of_range");
+          setDeliveryRango(null);
+        }
       }
     } catch {
       setDeliveryStatus("error");
     }
   };
 
-  const deliveryCost =
-    deliveryType === "delivery" && deliveryConfig && deliveryRango
-      ? deliveryRango.precio
+  const costoEnvio =
+    deliveryType === "delivery" && deliveryConfig && deliveryStatus === "success"
+      ? deliveryCost
       : 0;
   const subtotal = cart.reduce((acc, item) => acc + item.precioFinal, 0);
-  const total = subtotal + deliveryCost;
+  const total = subtotal + costoEnvio;
 
   const metodosPagoDisponibles = Object.entries(config.metodosPago || {})
     .filter(([, m]) => {
@@ -173,10 +338,12 @@ export const CarritoView = ({
 
   const handleChangeEntrega = (tipo) => {
     setDeliveryType(tipo);
+    saveStored(customer, tipo, null);
     setPayment("");
     setDeliveryStatus("idle");
     setDeliveryKm(null);
     setDeliveryRango(null);
+    setDeliveryCost(0);
   };
 
   const handleSubmitOrder = async (e) => {
@@ -207,13 +374,14 @@ export const CarritoView = ({
           deliveryConfig && deliveryKm != null
             ? Math.round(deliveryKm * 10) / 10
             : null,
-        deliveryLabel: deliveryRango?.label ?? null,
+        deliveryCosto: deliveryType === "delivery" ? costoEnvio : null,
+        ...(deliveryRango && { deliveryLabel: deliveryRango.label }),
       },
       tipoEntrega: deliveryType,
       metodoPago: paymentMethod,
       items: itemsLimpios,
       subtotal,
-      costoEnvio: deliveryCost,
+      costoEnvio: costoEnvio,
       total,
       estado: "pendiente",
       fecha: serverTimestamp(),
@@ -438,31 +606,41 @@ export const CarritoView = ({
                       required
                       placeholder="Dirección de envío (calle, número…)"
                       value={customer.address}
-                      onChange={(e) =>
-                        handleCustomerChange("address", e.target.value)
-                      }
+                      onChange={(e) => {
+                        handleCustomerChange("address", e.target.value);
+                        if (deliveryStatus === "success") {
+                          setDeliveryStatus("idle");
+                        }
+                        setGeocodingIntentos(0);
+                      }}
                     />
                     {deliveryConfig && (
                       <div className="cv-delivery-calc">
+                        {geocodingIntentos >= 3 && (
+                          <p className="cv-delivery-feedback cv-delivery-feedback--error delivery-error">
+                            No pudimos encontrar tu dirección. Intenta escribirla
+                            de otra forma — incluye calle, número y ciudad.
+                          </p>
+                        )}
                         <button
                           type="button"
                           className="cv-delivery-calc-btn"
                           onClick={handleCalcularCostoEnvio}
                           disabled={
                             !customer.address?.trim() ||
-                            deliveryStatus !== "idle"
+                            deliveryStatus !== "idle" ||
+                            geocodingIntentos >= 3
                           }
                         >
                           {deliveryStatus === "loading"
                             ? "Calculando distancia…"
                             : "Calcular costo de envío"}
                         </button>
-                        {deliveryStatus === "success" && deliveryRango && (
+                        {deliveryStatus === "success" && (
                           <p className="cv-delivery-feedback cv-delivery-feedback--success">
-                            ✓ {deliveryKm != null
-                              ? `${(Math.round(deliveryKm * 10) / 10).toFixed(1)} km`
-                              : ""} — {deliveryRango.label} — $
-                            {deliveryRango.precio.toLocaleString("es-CL")}
+                            {modoDelivery === "porKm"
+                              ? `✓ ${deliveryKm != null ? (Math.round(deliveryKm * 10) / 10).toFixed(1) : ""} km — Envío: $${deliveryCost.toLocaleString("es-CL")}`
+                              : `✓ ${deliveryKm != null ? (Math.round(deliveryKm * 10) / 10).toFixed(1) : ""} km — ${deliveryRango?.label ?? ""} — $${deliveryCost.toLocaleString("es-CL")}`}
                           </p>
                         )}
                         {deliveryStatus === "out_of_range" && (
@@ -481,8 +659,8 @@ export const CarritoView = ({
                         )}
                         {deliveryStatus === "error" && (
                           <p className="cv-delivery-feedback cv-delivery-feedback--error">
-                            No pudimos calcular el costo. Verifica tu dirección
-                            e intenta nuevamente.
+                            {deliveryErrorMsg ||
+                              "No pudimos calcular el costo. Verifica tu dirección e intenta nuevamente."}
                           </p>
                         )}
                       </div>
@@ -544,12 +722,14 @@ export const CarritoView = ({
                 <div className="cv-summary__row">
                   <span>
                     Envío
-                    {deliveryConfig && deliveryRango && deliveryKm != null
-                      ? ` (${(Math.round(deliveryKm * 10) / 10).toFixed(1)} km — ${deliveryRango.label})`
+                    {deliveryConfig && deliveryKm != null && deliveryStatus === "success"
+                      ? modoDelivery === "porKm"
+                        ? ` (${(Math.round(deliveryKm * 10) / 10).toFixed(1)} km)`
+                        : ` (${(Math.round(deliveryKm * 10) / 10).toFixed(1)} km — ${deliveryRango?.label ?? ""})`
                       : ""}
                   </span>
                   <span>
-                    {deliveryRango
+                    {deliveryStatus === "success"
                       ? `$${deliveryCost.toLocaleString("es-CL")}`
                       : "—"}
                   </span>

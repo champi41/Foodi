@@ -68,6 +68,95 @@
   margin-bottom: 5px;
 }
 
+/* ── Selector modo delivery ── */
+.delivery-modo-selector {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  margin-bottom: 24px;
+}
+
+.delivery-modo-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 16px;
+  border-radius: 12px;
+  border: 2px solid #e5e7eb;
+  background: white;
+  cursor: pointer;
+  transition: all 0.15s;
+  text-align: center;
+}
+
+.delivery-modo-btn:hover {
+  border-color: #9ca3af;
+}
+
+.delivery-modo-btn.activo {
+  border-color: #111;
+  background: #f9fafb;
+}
+
+.modo-icon {
+  font-size: 24px;
+}
+
+.modo-titulo {
+  font-weight: 600;
+  font-size: 14px;
+  color: #111;
+}
+
+.modo-desc {
+  font-size: 12px;
+  color: #6b7280;
+}
+
+/* ── Formulario modo por km ── */
+.delivery-porkm-form {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.delivery-porkm-preview {
+  background: #f9fafb;
+  border-radius: 10px;
+  padding: 14px 16px;
+  border: 1px solid #e5e7eb;
+}
+
+.preview-titulo {
+  font-size: 12px;
+  font-weight: 600;
+  color: #6b7280;
+  margin-bottom: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.preview-row {
+  display: flex;
+  justify-content: space-between;
+  font-size: 13px;
+  color: #111;
+  padding: 4px 0;
+  border-bottom: 1px solid #f3f4f6;
+}
+
+.preview-row:last-of-type {
+  border-bottom: none;
+}
+
+.preview-formula {
+  font-size: 11px;
+  color: #9ca3af;
+  margin-top: 8px;
+  text-align: center;
+}
+
 .config-section input[type="text"],
 .config-section input[type="tel"],
 .config-section input[type="email"],
