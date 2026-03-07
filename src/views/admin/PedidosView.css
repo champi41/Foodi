@@ -385,6 +385,26 @@
 
 .entrega-zona { color: #3b82f6; font-weight: 700; }
 
+.entrega-referencia {
+  font-size: 12px;
+  color: #64748b;
+  margin: 4px 0 6px;
+  font-style: italic;
+}
+
+.pedido-ver-mapa {
+  display: inline-block;
+  font-size: 12px;
+  font-weight: 600;
+  color: #2563eb;
+  text-decoration: none;
+  margin-top: 4px;
+  padding: 4px 0;
+}
+.pedido-ver-mapa:hover {
+  text-decoration: underline;
+}
+
 /* ── COLUMNA ARTÍCULOS ── */
 .pedido-items-col { padding: 14px 16px; }
 
@@ -557,9 +577,16 @@
   font-weight: 600;
 }
 
+.historial-cargar-mas-wrap {
+  text-align: center;
+  padding: 20px 16px;
+  border-top: 1px solid #e2e8f0;
+  margin-top: 8px;
+}
+
 .btn-cargar-mas {
-  display: block;
-  margin: 16px auto;
+  display: inline-block;
+  margin: 0 auto;
   padding: 10px 24px;
   background: #fff;
   border: 1.5px solid #e2e8f0;

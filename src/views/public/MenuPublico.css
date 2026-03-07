@@ -122,6 +122,31 @@
   color: var(--mp-muted);
 }
 
+.mp-ubi-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 10px;
+  background: var(--mp-surface);
+  border: 1px solid var(--mp-border);
+  border-radius: 20px;
+  color: var(--mp-muted);
+  font-family: var(--mp-font-body);
+  font-size: 11px;
+  font-weight: 600;
+  text-decoration: none;
+  cursor: pointer;
+  transition:
+    color 0.2s,
+    border-color 0.2s,
+    background 0.2s;
+}
+.mp-ubi-btn:hover {
+  color: var(--mp-accent);
+  border-color: var(--mp-accent-dim);
+  background: var(--mp-accent-dim);
+}
+
 .mp-header__name {
   font-family: var(--mp-font-display);
   font-size: clamp(26px, 7vw, 36px);

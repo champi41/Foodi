@@ -93,6 +93,9 @@ export function TicketImpresion({ pedido, negocio, onClose }) {
           {p.tipoEntrega === "delivery" && p.cliente?.address?.trim() && (
             <div>{p.cliente.address}</div>
           )}
+          {p.tipoEntrega === "delivery" && p.cliente?.referencia?.trim() && (
+            <div>Ref: {p.cliente.referencia}</div>
+          )}
 
           <hr className="ticket-sep" />
           <div className="ticket-tabla-header">

@@ -8,8 +8,27 @@ import {
   encontrarRango,
   calcularPrecioPorKm,
 } from "../../utils/delivery";
+import { MapContainer, TileLayer, Marker, useMapEvents } from "react-leaflet";
+import L from "leaflet";
+import "leaflet/dist/leaflet.css";
 import "./CarritoView.css";
 import { ChevronLeft } from "lucide-react";
+
+// Iconos Leaflet (Vite)
+import iconRetinaUrl from "leaflet/dist/images/marker-icon-2x.png";
+import iconUrl from "leaflet/dist/images/marker-icon.png";
+import shadowUrl from "leaflet/dist/images/marker-shadow.png";
+delete L.Icon.Default.prototype._getIconUrl;
+L.Icon.Default.mergeOptions({ iconRetinaUrl, iconUrl, shadowUrl });
+
+function MapClickHandler({ onSelect }) {
+  useMapEvents({
+    click(e) {
+      onSelect(e.latlng.lat, e.latlng.lng);
+    },
+  });
+  return null;
+}
 
 const STORAGE_KEY = "mp_customer_data";
 
@@ -32,6 +51,7 @@ const loadStored = () => {
       name: parsed.name ?? "",
       phone: parsed.phone ?? "",
       address: parsed.address ?? "",
+      referencia: parsed.referencia ?? "",
       deliveryType: parsed.deliveryType ?? null,
       deliveryResult,
     };
@@ -40,6 +60,7 @@ const loadStored = () => {
       name: "",
       phone: "",
       address: "",
+      referencia: "",
       deliveryType: null,
       deliveryResult: null,
     };
@@ -83,6 +104,7 @@ export const CarritoView = ({
     name: stored.name,
     phone: stored.phone,
     address: stored.address,
+    referencia: stored.referencia ?? "",
   });
   const deliveryTypeInitial = (() => {
     const saved = stored.deliveryType;
@@ -128,6 +150,8 @@ export const CarritoView = ({
   const [lastGeocodedAddress, setLastGeocodedAddress] = useState("");
   const [cachedCoords, setCachedCoords] = useState(null);
   const [geocodingIntentos, setGeocodingIntentos] = useState(0);
+  const [showMapPicker, setShowMapPicker] = useState(false);
+  const [mapSelectedCoords, setMapSelectedCoords] = useState(null);
 
   // ── Cierre con animación ──
   const [closing, setClosing] = useState(false);
@@ -242,6 +266,7 @@ export const CarritoView = ({
         setDeliveryKm(km);
 
         if (km > (Number(kmMaximo) ?? 0)) {
+          setGeocodingIntentos((prev) => prev + 1);
           setDeliveryStatus("out_of_range");
           return;
         }
@@ -261,6 +286,7 @@ export const CarritoView = ({
           label: undefined,
         });
         lastCalculatedAddressRef.current = addressTrim.trim().toLowerCase();
+        setGeocodingIntentos(0);
       } else {
         const km = distanciaLineaRectaKm(coordsLocal, coordsCliente);
         setDeliveryKm(km);
@@ -281,7 +307,68 @@ export const CarritoView = ({
             label: rango.label,
           });
           lastCalculatedAddressRef.current = addressTrim.trim().toLowerCase();
+          setGeocodingIntentos(0);
         } else {
+          setDeliveryStatus("out_of_range");
+          setDeliveryRango(null);
+        }
+      }
+    } catch {
+      setDeliveryStatus("error");
+    }
+  };
+
+  // Aplica coordenadas elegidas en el mapa para calcular envío (tras 2 intentos fallidos)
+  const aplicarCoordsDelMapa = async (coordsCliente) => {
+    const coordsLocal =
+      deliveryConfig?.coordenadasLocal || config.privado?.coordenadasLocal;
+    if (!coordsLocal || !coordsCliente) return;
+    const addressTrim = (customer.address || "").trim() || "Ubicación en mapa";
+    setDeliveryStatus("loading");
+    setDeliveryKm(null);
+    setDeliveryRango(null);
+    setDeliveryCost(0);
+    setDeliveryErrorMsg(null);
+    setShowMapPicker(false);
+    setMapSelectedCoords(null);
+    try {
+      if (modoDelivery === "porKm") {
+        const { kmMaximo, precioBaseDelivery, precioPorKm } = deliveryConfig;
+        const km = await calcularDistanciaKm(coordsLocal, coordsCliente);
+        if (km == null) {
+          setDeliveryErrorMsg("No se pudo calcular la distancia.");
+          setDeliveryStatus("error");
+          return;
+        }
+        setDeliveryKm(km);
+        if (km > (Number(kmMaximo) ?? 0)) {
+          setDeliveryStatus("out_of_range");
+          return;
+        }
+        const precio = calcularPrecioPorKm(km, precioBaseDelivery, precioPorKm);
+        setDeliveryCost(precio);
+        setDeliveryRango(null);
+        setDeliveryStatus("success");
+        saveStored(customer, deliveryType, { address: addressTrim, km, cost: precio, label: undefined });
+        lastCalculatedAddressRef.current = addressTrim.toLowerCase();
+        setGeocodingIntentos(0);
+      } else {
+        const km = distanciaLineaRectaKm(coordsLocal, coordsCliente);
+        setDeliveryKm(km);
+        const rango = encontrarRango(
+          km,
+          deliveryConfig.rangos || [],
+          deliveryConfig.kmMaximo ?? 0,
+        );
+        if (rango) {
+          setDeliveryStatus("success");
+          setDeliveryRango(rango);
+          setDeliveryCost(rango.precio);
+          saveStored(customer, deliveryType, { address: addressTrim, km, cost: rango.precio, label: rango.label });
+          lastCalculatedAddressRef.current = addressTrim.toLowerCase();
+          setGeocodingIntentos(0);
+        } else {
+          setGeocodingIntentos((prev) => prev + 1);
           setDeliveryStatus("out_of_range");
           setDeliveryRango(null);
         }
@@ -604,23 +691,48 @@ export const CarritoView = ({
                     <input
                       className="cv-input"
                       required
-                      placeholder="Dirección de envío (calle, número…)"
+                      placeholder="Dirección de envío (calle, número, ciudad…)"
                       value={customer.address}
                       onChange={(e) => {
                         handleCustomerChange("address", e.target.value);
                         if (deliveryStatus === "success") {
                           setDeliveryStatus("idle");
                         }
-                        setGeocodingIntentos(0);
+                        if (deliveryStatus === "out_of_range" || deliveryStatus === "error") {
+                          setDeliveryStatus("idle");
+                          setDeliveryKm(null);
+                          setDeliveryRango(null);
+                          setDeliveryCost(0);
+                          setDeliveryErrorMsg(null);
+                          lastCalculatedAddressRef.current = null;
+                        }
+                        // No reseteamos geocodingIntentos aquí: así tras 2 fallos aparece la opción del mapa
                       }}
+                    />
+                    <input
+                      className="cv-input"
+                      placeholder="Referencia (opcional): ej. casa azul, techo negro"
+                      value={customer.referencia ?? ""}
+                      onChange={(e) =>
+                        handleCustomerChange("referencia", e.target.value)
+                      }
                     />
                     {deliveryConfig && (
                       <div className="cv-delivery-calc">
-                        {geocodingIntentos >= 3 && (
+                        {geocodingIntentos >= 2 && (
                           <p className="cv-delivery-feedback cv-delivery-feedback--error delivery-error">
                             No pudimos encontrar tu dirección. Intenta escribirla
-                            de otra forma — incluye calle, número y ciudad.
+                            de otra forma — incluye calle, número y ciudad. O elige tu ubicación en el mapa.
                           </p>
+                        )}
+                        {geocodingIntentos >= 2 && (
+                          <button
+                            type="button"
+                            className="cv-delivery-map-btn"
+                            onClick={() => setShowMapPicker(true)}
+                          >
+                            📍 Elegir ubicación en el mapa
+                          </button>
                         )}
                         <button
                           type="button"
@@ -655,6 +767,9 @@ export const CarritoView = ({
                             ) : (
                               <>Lo sentimos, está fuera de nuestra zona de cobertura ({deliveryConfig.kmMaximo ?? 0} km máximo).</>
                             )}
+                            <span className="cv-delivery-feedback__hint">
+                              Prueba agregar la ciudad después de la dirección (ej.: Frutillar, Puerto Varas).
+                            </span>
                           </p>
                         )}
                         {deliveryStatus === "error" && (
@@ -761,6 +876,67 @@ export const CarritoView = ({
           </form>
         </div>
       </div>
+
+      {/* Modal: elegir ubicación en el mapa (tras 2 intentos fallidos) */}
+      {showMapPicker && deliveryConfig && (() => {
+        const coordsLocal =
+          deliveryConfig?.coordenadasLocal || config.privado?.coordenadasLocal;
+        if (coordsLocal?.lat == null || coordsLocal?.lng == null) return null;
+        const center = [coordsLocal.lat, coordsLocal.lng];
+        return (
+          <div
+            className="cv-map-overlay"
+            onClick={(e) => e.target === e.currentTarget && setShowMapPicker(false)}
+          >
+            <div className="cv-map-modal" onClick={(e) => e.stopPropagation()}>
+              <p className="cv-map-modal__title">
+                Toca en el mapa donde está tu casa o negocio
+              </p>
+              <div className="cv-map-wrap">
+                <MapContainer
+                  center={center}
+                  zoom={13}
+                  style={{ height: 280, width: "100%" }}
+                  scrollWheelZoom
+                >
+                  <TileLayer
+                    url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                    attribution="© OpenStreetMap"
+                  />
+                  <MapClickHandler
+                    onSelect={(lat, lng) =>
+                      setMapSelectedCoords({ lat, lng })
+                    }
+                  />
+                  {mapSelectedCoords && (
+                    <Marker position={[mapSelectedCoords.lat, mapSelectedCoords.lng]} />
+                  )}
+                </MapContainer>
+              </div>
+              <div className="cv-map-actions">
+                <button
+                  type="button"
+                  className="cv-map-use-btn"
+                  disabled={!mapSelectedCoords}
+                  onClick={() => aplicarCoordsDelMapa(mapSelectedCoords)}
+                >
+                  Usar esta ubicación
+                </button>
+                <button
+                  type="button"
+                  className="cv-map-cancel-btn"
+                  onClick={() => {
+                    setShowMapPicker(false);
+                    setMapSelectedCoords(null);
+                  }}
+                >
+                  Cancelar
+                </button>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
     </div>
   );
 };

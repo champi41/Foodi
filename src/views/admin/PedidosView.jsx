@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useCallback } from "react";
+import React, { useState, useMemo, useCallback, useRef } from "react";
 import { useOutletContext } from "react-router-dom";
 import {
   doc,
@@ -152,8 +152,9 @@ export const PedidosView = () => {
   const [mostrandoHistorial, setMostrandoHistorial] = useState(false);
   const [historial, setHistorial] = useState([]);
   const [cargandoHistorial, setCargandoHistorial] = useState(false);
-  const [ultimoDoc, setUltimoDoc] = useState(null);
   const [hayMas, setHayMas] = useState(true);
+  const ultimoDocRef = useRef(null);
+  const cargandoHistorialRef = useRef(false);
   const [error, setError] = useState(null);
   const [pedidoImprimir, setPedidoImprimir] = useState(null);
   const [confirmandoPagoId, setConfirmandoPagoId] = useState(null);
@@ -178,36 +179,55 @@ export const PedidosView = () => {
   }, [pedidosActivos, filtroEstado]);
 
   const cargarHistorial = useCallback(
-    async (desde = null) => {
-      if (cargandoHistorial) return;
+    async (cursorSnapshot = null) => {
+      if (cargandoHistorialRef.current) return;
+      cargandoHistorialRef.current = true;
       setCargandoHistorial(true);
       setError(null);
       try {
-        let q = query(
-          collection(db, `negocios/${businessId}/pedidos`),
-          where("fecha", "<", getHoyInicio()),
-          orderBy("fecha", "desc"),
-          limit(HISTORIAL_PAGE_SIZE),
-        );
-        if (desde) q = query(q, startAfter(desde));
+        const colRef = collection(db, `negocios/${businessId}/pedidos`);
+        const hoyInicio = getHoyInicio();
+
+        // Query explícita: siempre limit(10). Cursor con startAfter(snapshot) para paginación eficiente.
+        const q = cursorSnapshot
+          ? query(
+              colRef,
+              where("fecha", "<", hoyInicio),
+              orderBy("fecha", "desc"),
+              startAfter(cursorSnapshot),
+              limit(HISTORIAL_PAGE_SIZE),
+            )
+          : query(
+              colRef,
+              where("fecha", "<", hoyInicio),
+              orderBy("fecha", "desc"),
+              limit(HISTORIAL_PAGE_SIZE),
+            );
+
         const snap = await getDocs(q);
-        const nuevos = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
-        setHistorial((prev) => (desde ? [...prev, ...nuevos] : nuevos));
-        setUltimoDoc(snap.docs[snap.docs.length - 1] ?? null);
-        setHayMas(snap.docs.length === HISTORIAL_PAGE_SIZE);
+        const docs = snap.docs;
+        const nuevos = docs.map((d) => ({ id: d.id, ...d.data() }));
+
+        const lastDoc = docs.length > 0 ? docs[docs.length - 1] : null;
+        ultimoDocRef.current = lastDoc;
+        setHistorial((prev) => (cursorSnapshot ? [...prev, ...nuevos] : nuevos));
+        setHayMas(docs.length === HISTORIAL_PAGE_SIZE);
       } catch (err) {
         console.error("Error cargando historial:", err);
         setError("Error al cargar el historial");
+      } finally {
+        cargandoHistorialRef.current = false;
+        setCargandoHistorial(false);
       }
-      setCargandoHistorial(false);
     },
-    [businessId, cargandoHistorial],
+    [businessId],
   );
 
   const handleVerHistorial = () => {
     setMostrandoHistorial(true);
     setHistorial([]);
-    setUltimoDoc(null);
+    ultimoDocRef.current = null;
+    cargandoHistorialRef.current = false;
     setHayMas(true);
     cargarHistorial(null);
   };
@@ -400,6 +420,22 @@ export const PedidosView = () => {
                   "en Local"
                 )}
               </p>
+              {pedido.tipoEntrega === "delivery" &&
+                pedido.cliente?.referencia?.trim() && (
+                  <p className="entrega-referencia">
+                    Referencia: {pedido.cliente.referencia}
+                  </p>
+                )}
+              {pedido.tipoEntrega === "delivery" && pedido.cliente?.address?.trim() && (
+                <a
+                  href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(pedido.cliente.address.trim())}`}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="pedido-ver-mapa"
+                >
+                  Ver en el mapa
+                </a>
+              )}
             </div>
           </div>
         </div>
@@ -572,13 +608,16 @@ export const PedidosView = () => {
         {cargandoHistorial && (
           <div className="historial-loading">Cargando más pedidos...</div>
         )}
-        {!cargandoHistorial && hayMas && (
-          <button
-            className="btn-cargar-mas"
-            onClick={() => cargarHistorial(ultimoDoc)}
-          >
-            Cargar 10 más
-          </button>
+        {!cargandoHistorial && hayMas && historial.length > 0 && (
+          <div className="historial-cargar-mas-wrap">
+            <button
+              type="button"
+              className="btn-cargar-mas"
+              onClick={() => cargarHistorial(ultimoDocRef.current)}
+            >
+              Cargar 10 más
+            </button>
+          </div>
         )}
         {!cargandoHistorial && !hayMas && historial.length > 0 && (
           <p className="historial-fin">No hay más pedidos anteriores</p>

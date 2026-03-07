@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { collection, getDocs, query, where, limit } from "firebase/firestore";
 import { db } from "../../api/firebase";
 import { CarritoView } from "./CarritoView";
@@ -301,6 +301,72 @@ export const MenuPublico = ({ slug }) => {
     };
   }, [selectedProduct, showCart, showHorarios]);
 
+  // Cerrar carrito desde la UI: quita la entrada falsa del historial si existe
+  const cerrarCarrito = () => {
+    setShowCart(false);
+    if (window.history.state?.carritoAbierto) {
+      window.history.back();
+    }
+  };
+
+  // Cerrar modal de producto desde la UI (y quitar entrada del historial si existe)
+  const cerrarProductoModal = () => {
+    const estabaEditando = !!editingCartItem;
+    setSelectedProduct(null);
+    setEditingCartItem(null);
+    if (estabaEditando) setShowCart(true);
+    if (window.history.state?.modalProductoAbierto) {
+      window.history.back();
+    }
+  };
+
+  // Cerrar modal de horarios desde la UI (y quitar entrada del historial si existe)
+  const cerrarHorarios = () => {
+    setShowHorarios(false);
+    if (window.history.state?.modalHorariosAbierto) {
+      window.history.back();
+    }
+  };
+
+  // Al abrir carrito / modal producto / modal horarios: una entrada en el historial para interceptar "atrás"
+  const showCartRef = useRef(showCart);
+  const selectedProductRef = useRef(selectedProduct);
+  const showHorariosRef = useRef(showHorarios);
+  useEffect(() => {
+    if (showCart && !showCartRef.current) {
+      window.history.pushState({ carritoAbierto: true }, "");
+    }
+    showCartRef.current = showCart;
+  }, [showCart]);
+  useEffect(() => {
+    if (selectedProduct && !selectedProductRef.current) {
+      window.history.pushState({ modalProductoAbierto: true }, "");
+    }
+    selectedProductRef.current = selectedProduct;
+  }, [selectedProduct]);
+  useEffect(() => {
+    if (showHorarios && !showHorariosRef.current) {
+      window.history.pushState({ modalHorariosAbierto: true }, "");
+    }
+    showHorariosRef.current = showHorarios;
+  }, [showHorarios]);
+
+  // Interceptar popstate (botón "atrás" físico): cerrar el overlay abierto en vez de salir de la página
+  useEffect(() => {
+    const handlePopState = () => {
+      if (showCart) {
+        setShowCart(false);
+      } else if (selectedProduct) {
+        setSelectedProduct(null);
+        setEditingCartItem(null);
+      } else if (showHorarios) {
+        setShowHorarios(false);
+      }
+    };
+    window.addEventListener("popstate", handlePopState);
+    return () => window.removeEventListener("popstate", handlePopState);
+  }, [showCart, selectedProduct, showHorarios]);
+
   useEffect(() => {
     if (slug) loadBusinessData();
   }, [slug]);
@@ -375,12 +441,15 @@ export const MenuPublico = ({ slug }) => {
     setSelectedProduct(null);
     setEditingCartItem(null);
     if (editingCartItem) setShowCart(true);
+    if (window.history.state?.modalProductoAbierto) {
+      window.history.back();
+    }
   };
 
   const handleEditItem = (item) => {
     setEditingCartItem(item);
     setSelectedProduct(item.productoOriginal);
-    setShowCart(false);
+    cerrarCarrito();
   };
 
   const removeFromCart = (uid) => setCart(cart.filter((i) => i.uid !== uid));
@@ -416,19 +485,31 @@ export const MenuPublico = ({ slug }) => {
           )}
           <div className="titulo-ubi">
             <h1 className="mp-header__name">{business.nombre}</h1>
-            <div className="ubi-status">
-              <MapPin size={15} />
-              <p>{business.ubicacion}</p>
-              {business.horarios && (
-                <button
-                  className="mp-horario-btn"
-                  onClick={() => setShowHorarios(true)}
-                >
-                  <Clock size={12} />
-                  Horario
-                </button>
-              )}
-            </div>
+            {(business.deliveryConfig?.direccionLocal?.trim() || business.horarios) && (
+              <div className="ubi-status">
+                {business.deliveryConfig?.direccionLocal?.trim() && (
+                  <a
+                    href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(business.deliveryConfig.direccionLocal.trim())}`}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="mp-ubi-btn"
+                  >
+                    <MapPin size={15} />
+                    <span>{business.deliveryConfig.direccionLocal.trim()}</span>
+                  </a>
+                )}
+                {business.horarios && (
+                  <button
+                    type="button"
+                    className="mp-horario-btn"
+                    onClick={() => setShowHorarios(true)}
+                  >
+                    <Clock size={12} />
+                    Horario
+                  </button>
+                )}
+              </div>
+            )}
           </div>
         </div>
         {!isOpen &&
@@ -526,11 +607,7 @@ export const MenuPublico = ({ slug }) => {
         <ProductModal
           product={selectedProduct}
           editingItem={editingCartItem}
-          onClose={() => {
-            setSelectedProduct(null);
-            setEditingCartItem(null);
-            if (editingCartItem) setShowCart(true);
-          }}
+          onClose={cerrarProductoModal}
           onAdd={addToCart}
         />
       )}
@@ -553,7 +630,7 @@ export const MenuPublico = ({ slug }) => {
         <CarritoView
           cart={cart}
           business={business}
-          onClose={() => setShowCart(false)}
+          onClose={cerrarCarrito}
           onRemoveItem={removeFromCart}
           onEditItem={handleEditItem}
           clearCart={() => setCart([])}
@@ -565,7 +642,7 @@ export const MenuPublico = ({ slug }) => {
         <HorariosModal
           horarios={business.horarios}
           isOpen={isOpen}
-          onClose={() => setShowHorarios(false)}
+          onClose={cerrarHorarios}
         />
       )}
     </div>

@@ -237,6 +237,8 @@ export const PersonalizacionView = ({ businessId }) => {
       </section>
 
       {/* ── APARIENCIA ── */}
+      <div className="pv-layout">
+        <div className="pv-col-form">
       <section className="config-section">
         <h2>Apariencia del Menú</h2>
         <p className="config-hint">
@@ -403,8 +405,11 @@ export const PersonalizacionView = ({ businessId }) => {
             })}
           </div>
         </div>
+        </section>
+        </div>
 
         {/* Preview en vivo */}
+        <div className="pv-col-preview">
         <div
           className="tema-preview"
           style={{
@@ -480,7 +485,8 @@ export const PersonalizacionView = ({ businessId }) => {
             Todo
           </div>
         </div>
-      </section>
+        </div>
+      </div>
 
       <button
         className="btn-save-config"

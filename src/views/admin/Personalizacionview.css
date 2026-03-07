@@ -9,10 +9,12 @@
 */
 
 .pv-view {
-  max-width: 700px;
+  width: 100%;
+  max-width: 720px;
   margin: 0 auto;
   padding: 28px 20px 60px;
   font-family: sans-serif;
+  box-sizing: border-box;
 }
 
 .pv-view h1 {
@@ -22,6 +24,101 @@
   text-transform: uppercase;
   letter-spacing: -0.5px;
   margin: 0 0 24px;
+}
+
+/* Layout: formulario + preview en dos columnas en desktop */
+.pv-layout {
+  display: block;
+}
+
+.pv-col-form {
+  min-width: 0;
+}
+
+.pv-col-preview {
+  min-width: 0;
+}
+
+/* Mismo ancho que Configuración: 1280px desde 1024px (igual que .config-view) */
+@media (min-width: 1024px) {
+  .pv-view {
+    max-width: 1280px;
+    padding: 32px 28px 80px;
+  }
+
+  .pv-view h1 {
+    margin-bottom: 28px;
+  }
+
+  /* Dos columnas: mismo criterio que Config para aprovechar el espacio */
+  .pv-layout {
+    display: grid;
+    grid-template-columns: minmax(340px, 1fr) minmax(380px, 1fr);
+    gap: 32px;
+    align-items: start;
+  }
+
+  .pv-col-preview {
+    position: sticky;
+    top: 24px;
+    width: 100%;
+  }
+
+  .pv-col-preview .tema-preview {
+    width: 100%;
+    min-height: 380px;
+    padding: 20px;
+    border-radius: 16px;
+  }
+
+  /* Vista previa más grande en desktop para aprovechar el espacio */
+  .pv-col-preview .tema-preview__label {
+    font-size: 11px;
+    margin-bottom: 12px;
+  }
+
+  .pv-col-preview .tema-preview__header {
+    padding-bottom: 12px;
+    margin-bottom: 12px;
+  }
+
+  .pv-col-preview .tema-preview__logo {
+    width: 36px;
+    height: 36px;
+  }
+
+  .pv-col-preview .tema-preview__biz-name {
+    font-size: 15px;
+  }
+
+  .pv-col-preview .tema-preview__card {
+    padding: 16px 18px;
+    margin-bottom: 14px;
+    border-radius: 14px;
+  }
+
+  .pv-col-preview .tema-preview__name {
+    font-size: 15px;
+  }
+
+  .pv-col-preview .tema-preview__sub {
+    font-size: 11px;
+  }
+
+  .pv-col-preview .tema-preview__price {
+    font-size: 17px;
+  }
+
+  .pv-col-preview .tema-preview__btn {
+    padding: 10px 18px;
+    font-size: 13px;
+    border-radius: 10px;
+  }
+
+  .pv-col-preview .tema-preview__pill {
+    padding: 6px 18px;
+    font-size: 13px;
+  }
 }
 
 @media (max-width: 768px) {

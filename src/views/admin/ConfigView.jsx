@@ -406,6 +406,8 @@ export const ConfigView = ({ businessId }) => {
       <h1>Configuración del Local</h1>
 
       <form onSubmit={handleSave}>
+        <div className="config-form-grid">
+          <div className="config-col config-col-left">
         {/* ── INFO GENERAL ── */}
         <section className="config-section">
           <h2>Información General</h2>
@@ -502,6 +504,127 @@ export const ConfigView = ({ businessId }) => {
           </div>
         </section>
 
+        {/* ── MÉTODOS DE PAGO ── */}
+        <section className="config-section">
+          <h2>Métodos de Pago</h2>
+          <p className="config-hint">
+            Activa cada método y elige en qué tipo de entrega se acepta.
+          </p>
+          {[
+            { key: "efectivo", label: "Efectivo", icon: "💵" },
+            { key: "transferencia", label: "Transferencia", icon: "🏦" },
+            { key: "tarjetaPresencial", label: "Tarjeta", icon: "💳" },
+          ].map(({ key, label, icon }) => {
+            const metodo = config.metodosPago[key];
+            return (
+              <div
+                key={key}
+                className={`pago-card ${metodo.activo ? "active" : ""}`}
+              >
+                <div className="pago-header">
+                  <label className="pago-toggle">
+                    <input
+                      type="checkbox"
+                      checked={metodo.activo}
+                      onChange={(e) => setPago(key, "activo", e.target.checked)}
+                    />
+                    <span>
+                      {icon} {label}
+                    </span>
+                  </label>
+                </div>
+                {metodo.activo && (
+                  <div className="pago-entrega-opts">
+                    <span className="pago-entrega-label">Disponible en:</span>
+                    {retiroActivo && (
+                      <label className="pago-check">
+                        <input
+                          type="checkbox"
+                          checked={metodo.retiro}
+                          onChange={(e) =>
+                            setPago(key, "retiro", e.target.checked)
+                          }
+                        />
+                        🏪 Retiro
+                      </label>
+                    )}
+                    {deliveryActivo && (
+                      <label className="pago-check">
+                        <input
+                          type="checkbox"
+                          checked={metodo.delivery}
+                          onChange={(e) =>
+                            setPago(key, "delivery", e.target.checked)
+                          }
+                        />
+                        🛵 Delivery
+                      </label>
+                    )}
+                    {!retiroActivo && !deliveryActivo && (
+                      <span style={{ fontSize: 12, color: "#999" }}>
+                        Activa al menos un tipo de entrega
+                      </span>
+                    )}
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </section>
+
+        {/* ── DATOS BANCARIOS ── */}
+        {config.metodosPago.transferencia.activo && (
+          <section className="config-section">
+            <h2>Datos Bancarios</h2>
+            <p className="config-hint">
+              Se muestran al cliente cuando elige pagar por transferencia.
+            </p>
+            {[
+              {
+                campo: "nombre",
+                placeholder: "Nombre del titular",
+                type: "text",
+              },
+              {
+                campo: "rut",
+                placeholder: "RUT (ej: 12.345.678-9)",
+                type: "text",
+              },
+              {
+                campo: "banco",
+                placeholder: "Banco (ej: BancoEstado)",
+                type: "text",
+              },
+              {
+                campo: "tipoCuenta",
+                placeholder: "Tipo de cuenta (ej: Cuenta Vista)",
+                type: "text",
+              },
+              {
+                campo: "nroCuenta",
+                placeholder: "Número de cuenta",
+                type: "text",
+              },
+              {
+                campo: "emailComprobante",
+                placeholder: "Email para comprobantes",
+                type: "email",
+              },
+            ].map(({ campo, placeholder, type }) => (
+              <div className="config-row" key={campo}>
+                <input
+                  type={type}
+                  placeholder={placeholder}
+                  value={config.datosBancarios[campo]}
+                  onChange={(e) => setBancario(campo, e.target.value)}
+                />
+              </div>
+            ))}
+          </section>
+        )}
+          </div>
+
+          <div className="config-col config-col-right">
         {/* ── DELIVERY POR DISTANCIA (Google Maps) ── */}
         {deliveryActivo && (
           <section className="config-section">
@@ -814,125 +937,6 @@ export const ConfigView = ({ businessId }) => {
           </section>
         )}
 
-        {/* ── MÉTODOS DE PAGO ── */}
-        <section className="config-section">
-          <h2>Métodos de Pago</h2>
-          <p className="config-hint">
-            Activa cada método y elige en qué tipo de entrega se acepta.
-          </p>
-          {[
-            { key: "efectivo", label: "Efectivo", icon: "💵" },
-            { key: "transferencia", label: "Transferencia", icon: "🏦" },
-            { key: "tarjetaPresencial", label: "Tarjeta", icon: "💳" },
-          ].map(({ key, label, icon }) => {
-            const metodo = config.metodosPago[key];
-            return (
-              <div
-                key={key}
-                className={`pago-card ${metodo.activo ? "active" : ""}`}
-              >
-                <div className="pago-header">
-                  <label className="pago-toggle">
-                    <input
-                      type="checkbox"
-                      checked={metodo.activo}
-                      onChange={(e) => setPago(key, "activo", e.target.checked)}
-                    />
-                    <span>
-                      {icon} {label}
-                    </span>
-                  </label>
-                </div>
-                {metodo.activo && (
-                  <div className="pago-entrega-opts">
-                    <span className="pago-entrega-label">Disponible en:</span>
-                    {retiroActivo && (
-                      <label className="pago-check">
-                        <input
-                          type="checkbox"
-                          checked={metodo.retiro}
-                          onChange={(e) =>
-                            setPago(key, "retiro", e.target.checked)
-                          }
-                        />
-                        🏪 Retiro
-                      </label>
-                    )}
-                    {deliveryActivo && (
-                      <label className="pago-check">
-                        <input
-                          type="checkbox"
-                          checked={metodo.delivery}
-                          onChange={(e) =>
-                            setPago(key, "delivery", e.target.checked)
-                          }
-                        />
-                        🛵 Delivery
-                      </label>
-                    )}
-                    {!retiroActivo && !deliveryActivo && (
-                      <span style={{ fontSize: 12, color: "#999" }}>
-                        Activa al menos un tipo de entrega
-                      </span>
-                    )}
-                  </div>
-                )}
-              </div>
-            );
-          })}
-        </section>
-
-        {/* ── DATOS BANCARIOS ── */}
-        {config.metodosPago.transferencia.activo && (
-          <section className="config-section">
-            <h2>Datos Bancarios</h2>
-            <p className="config-hint">
-              Se muestran al cliente cuando elige pagar por transferencia.
-            </p>
-            {[
-              {
-                campo: "nombre",
-                placeholder: "Nombre del titular",
-                type: "text",
-              },
-              {
-                campo: "rut",
-                placeholder: "RUT (ej: 12.345.678-9)",
-                type: "text",
-              },
-              {
-                campo: "banco",
-                placeholder: "Banco (ej: BancoEstado)",
-                type: "text",
-              },
-              {
-                campo: "tipoCuenta",
-                placeholder: "Tipo de cuenta (ej: Cuenta Vista)",
-                type: "text",
-              },
-              {
-                campo: "nroCuenta",
-                placeholder: "Número de cuenta",
-                type: "text",
-              },
-              {
-                campo: "emailComprobante",
-                placeholder: "Email para comprobantes",
-                type: "email",
-              },
-            ].map(({ campo, placeholder, type }) => (
-              <div className="config-row" key={campo}>
-                <input
-                  type={type}
-                  placeholder={placeholder}
-                  value={config.datosBancarios[campo]}
-                  onChange={(e) => setBancario(campo, e.target.value)}
-                />
-              </div>
-            ))}
-          </section>
-        )}
-
         {/* ── HORARIOS ── */}
         <section className="config-section">
           <h2>Horarios de Atención</h2>
@@ -1009,6 +1013,8 @@ export const ConfigView = ({ businessId }) => {
             })}
           </div>
         </section>
+          </div>
+        </div>
 
         <button type="submit" className="btn-save-config" disabled={saving}>
           {saving
